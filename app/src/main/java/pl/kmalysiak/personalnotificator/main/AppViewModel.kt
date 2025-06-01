@@ -1,7 +1,10 @@
 package pl.kmalysiak.personalnotificator.main
 
+
 import android.content.ContentValues
+import android.content.Context
 import android.util.Log
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,24 +14,40 @@ import org.greenrobot.eventbus.ThreadMode
 import pl.kmalysiak.personalnotificator.events.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.events.PermEvent
 import pl.kmalysiak.personalnotificator.events.TokenEvent
+import pl.kmalysiak.personalnotificator.model.SecurePrefs
 import java.time.LocalDateTime
 
 class AppViewModel : ViewModel() {
     private val _token = MutableStateFlow("Token unknown")
-    private val _tableData =
-        MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
-    private val _permissionData =
-        MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
-
-    val token: StateFlow<String> get() = _token
-    val tableData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _tableData
-    val permissionData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _permissionData
+    private val _tableData = MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
+    private val _permissionData = MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
+    internal val token: StateFlow<String> get() = _token
+    internal val tableData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _tableData
+    internal val permissionData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _permissionData
     private val _lastGateOpened = MutableStateFlow(LocalDateTime.of(2025, 1, 1, 1, 2, 3))
-    val lastGateOpened: StateFlow<LocalDateTime> get() = _lastGateOpened
+    internal val lastGateOpened: StateFlow<LocalDateTime> get() = _lastGateOpened
     private val _lastGateClosed = MutableStateFlow(LocalDateTime.of(2025, 1, 2, 2, 3, 4))
-    val lastGateClosed: StateFlow<LocalDateTime> get() = _lastGateClosed
+    internal val lastGateClosed: StateFlow<LocalDateTime> get() = _lastGateClosed
     private val _lastMovement = MutableStateFlow(LocalDateTime.of(2025, 1, 3, 3, 4, 5))
-    val lastMovement: StateFlow<LocalDateTime> get() = _lastMovement
+    internal val lastMovement: StateFlow<LocalDateTime> get() = _lastMovement
+
+    var username = mutableStateOf("")
+        private set
+
+    var password = mutableStateOf("")
+        private set
+
+    fun loadCredentials(context: Context) {
+        val (user, pass) = SecurePrefs.loadCredentials(context)
+        username.value = user
+        password.value = pass
+    }
+
+    fun saveCredentials(context: Context, user: String, pass: String) {
+        SecurePrefs.saveCredentials(context, user, pass)
+        username.value = user
+        password.value = pass
+    }
 
 
     init {
@@ -50,7 +69,7 @@ class AppViewModel : ViewModel() {
     fun onDateTimeEvent(event: EventWithDateTimeAndStatus) {
         val newRow = Triple(event.type, event.dt, event.status)
         _tableData.value = _tableData.value + newRow
-      //  Log.d(TAG, "Topic event received:${event.msg}")
+        //  Log.d(TAG, "Topic event received:${event.msg}")
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

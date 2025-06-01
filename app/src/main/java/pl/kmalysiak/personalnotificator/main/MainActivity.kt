@@ -82,19 +82,6 @@ class MainActivity : ComponentActivity() {
                 }
                 Log.d(ContentValues.TAG, msg)
             }
-        //TODO! link with user form
-        FirebaseAuth.getInstance()
-            .signInWithEmailAndPassword("kmalysiak.pl@gmail.com", "asdewq12")
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val user = FirebaseAuth.getInstance().currentUser
-                    Log.i(ContentValues.TAG, "user signed in!")
-                } else {
-                    // Handle sign-in failure
-                    val error = task.exception
-                    Log.w(ContentValues.TAG, "user signed not signed in with err:$error")
-                }
-            }
 
 
         FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->

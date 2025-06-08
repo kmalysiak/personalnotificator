@@ -18,11 +18,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.tasks.OnCompleteListener
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
+import pl.kmalysiak.config.ConfigLoader
 import pl.kmalysiak.personalnotificator.TtsForegroundService
 import pl.kmalysiak.personalnotificator.events.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.events.PermEvent
@@ -33,6 +33,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ConfigLoader.init(this)
+
         val that = this
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(
                 this, Manifest.permission.POST_NOTIFICATIONS

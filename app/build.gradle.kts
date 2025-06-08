@@ -71,4 +71,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.security.crypto)
     implementation(libs.okhttp)
+    implementation(libs.gson)
+
 }

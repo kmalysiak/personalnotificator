@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import pl.kmalysiak.personalnotificator.auth.BackendAuth
+import pl.kmalysiak.personalnotificator.auth.RegisterResult
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -66,9 +70,9 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
 
     val username by viewModel.username
     val password by viewModel.password
-
+    val backendAuth = BackendAuth()
     LaunchedEffect(Unit) {
-       viewModel.loadCredentials(context)
+        viewModel.loadCredentials(context)
     }
 
     Box(
@@ -98,14 +102,28 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                     }
                 }
 
+                val scope = rememberCoroutineScope()
+                var regResult by remember { mutableStateOf<RegisterResult?>(null) }
+
                 when (selectedTabIndex) {
                     0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, tableData)
                     1 -> TabSettings(prefs, token, permissionData)
                     2 -> TabCredentials(
                         username, password,
                     ) { inputUser, inputPass ->
-                        Toast.makeText(context, "Verified user: $inputUser", Toast.LENGTH_SHORT).show()
-                        viewModel.saveCredentials(context, inputUser, inputPass)
+                        scope.launch {
+                            regResult = backendAuth.authenticateAndSendCredHomeAsync(context)
+                        }
+
+                        regResult?.let {
+                            if (it.isRegister) {
+                                Toast.makeText(context, "User logged in: $inputUser", Toast.LENGTH_SHORT).show()
+                                viewModel.saveCredentials(context, inputUser, inputPass)
+                            } else {
+                                Toast.makeText(context, "User not logged in: $inputUser: ${it.errrorDesc}", Toast.LENGTH_SHORT).show()
+                                viewModel.saveCredentials(context, inputUser, inputPass)
+                            }
+                        }
                     }
                 }
             }

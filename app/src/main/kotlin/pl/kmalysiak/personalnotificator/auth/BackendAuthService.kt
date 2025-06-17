@@ -11,21 +11,20 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import pl.kmalysiak.config.ConfigLoader
-import pl.kmalysiak.personalnotificator.model.Payload
-import pl.kmalysiak.personalnotificator.model.SecurePrefs
+import pl.kmalysiak.personalnotificator.config.ConfigLoader
+import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import java.util.UUID
 
-class BackendAuth : Service() {
+class BackendAuthService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val firebaseAuth = FirebaseAuth.getInstance()
@@ -45,9 +44,9 @@ class BackendAuth : Service() {
         TODO("Not yet implemented")
     }
 
-    suspend fun authenticateAndSendCredHomeAsync(ctx: Context): RegisterResult {
+    suspend fun authenticateAndSendCredHomeAsync(ctx: Context): BackendAuthResult {
         return try {
-            val credentials = SecurePrefs.loadCredentials(ctx)
+            val credentials = SecurePrefsService.loadCredentials(ctx)
 
             val authResult = firebaseAuth
                 .signInWithEmailAndPassword(credentials.first, credentials.second)
@@ -72,14 +71,21 @@ class BackendAuth : Service() {
              withContext(Dispatchers.IO) {
                 client.newCall(request).execute().use { response ->
                     val bodyString = response.body?.string()
-                        ?: return@withContext RegisterResult(false, "Home returned nothing.")
-                    Gson().fromJson(bodyString, RegisterResult::class.java)
+                        ?: return@withContext BackendAuthResult(false, "Home returned nothing.")
+                    Gson().fromJson(bodyString, BackendAuthResult::class.java)
                 }
             }
 
         } catch (e: Exception) {
             e.printStackTrace()
-            RegisterResult(false, "Exception calling home.")
+            BackendAuthResult(false, "Exception calling home.")
         }
     }
+
+    @Serializable
+    data class Payload(
+        val uuid: String,
+        val fcmToken: String,
+        val login: String
+    )
 }

@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator.model
+package pl.kmalysiak.personalnotificator.model.secure
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -6,7 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme
 import androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme
 
-object SecurePrefs {
+object SecurePrefsService {
 
     private const val PREF_NAME = "secret_prefs"
     private const val MASTER_KEY_ALIAS = "master_key_alias"

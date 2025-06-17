@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator.events
+package pl.kmalysiak.personalnotificator.model.event
 
 import java.time.LocalDateTime
 

@@ -22,11 +22,10 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
-import pl.kmalysiak.config.ConfigLoader
-import pl.kmalysiak.personalnotificator.TtsForegroundService
-import pl.kmalysiak.personalnotificator.events.EventWithDateTimeAndStatus
-import pl.kmalysiak.personalnotificator.events.PermEvent
-import pl.kmalysiak.personalnotificator.events.TokenEvent
+import pl.kmalysiak.personalnotificator.config.ConfigLoader
+import pl.kmalysiak.personalnotificator.NotificationForegroundService
+import pl.kmalysiak.personalnotificator.model.event.PermEvent
+import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import java.time.LocalDateTime
 
 class MainActivity : ComponentActivity() {
@@ -50,7 +49,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val intent = Intent(this, TtsForegroundService::class.java)
+        val intent = Intent(this, NotificationForegroundService::class.java)
         startForegroundService(intent)
 
 
@@ -61,29 +60,29 @@ class MainActivity : ComponentActivity() {
         }
 
 
-        FirebaseMessaging.getInstance().subscribeToTopic("home_notifications")
-            .addOnCompleteListener { task ->
-                var msg = "Subscribed to home_notifications topic"
-                if (!task.isSuccessful) {
-                    msg = "Subscribe failed to home_notifications topic"
-                    EventBus.getDefault().post(
-                        EventWithDateTimeAndStatus(
-                            "Home notification subscription",
-                            LocalDateTime.now(),
-                            "NOK"
-                        )
-                    )
-                } else {
-                    EventBus.getDefault().post(
-                        EventWithDateTimeAndStatus(
-                            "Home notification subscription",
-                            LocalDateTime.now(),
-                            "OK"
-                        )
-                    )
-                }
-                Log.d(ContentValues.TAG, msg)
-            }
+//        FirebaseMessaging.getInstance().subscribeToTopic("home_notifications")
+//            .addOnCompleteListener { task ->
+//                var msg = "Subscribed to home_notifications topic"
+//                if (!task.isSuccessful) {
+//                    msg = "Subscribe failed to home_notifications topic"
+//                    EventBus.getDefault().post(
+//                        EventWithDateTimeAndStatus(
+//                            "Home notification subscription",
+//                            LocalDateTime.now(),
+//                            "NOK"
+//                        )
+//                    )
+//                } else {
+//                    EventBus.getDefault().post(
+//                        EventWithDateTimeAndStatus(
+//                            "Home notification subscription",
+//                            LocalDateTime.now(),
+//                            "OK"
+//                        )
+//                    )
+//                }
+//                Log.d(ContentValues.TAG, msg)
+//            }
 
 
         FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->

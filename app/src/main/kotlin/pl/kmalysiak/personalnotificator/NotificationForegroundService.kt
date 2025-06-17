@@ -15,28 +15,36 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import androidx.room.Room
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
-import pl.kmalysiak.personalnotificator.events.EventWithDateTimeAndStatus
+import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
+import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
+import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import java.io.File
 import java.io.IOException
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.LinkedList
 import java.util.Locale
 import java.util.Queue
 
-class TtsForegroundService : Service() {
+class NotificationForegroundService : Service() {
     private var tts: TextToSpeech? = null
     private var mediaPlayer: MediaPlayer? = null
     private val queue: Queue<String> = LinkedList()
     private var isPlaying = false
     private var ttsInitialized = false
     private lateinit var wavFile: File
-
+    private lateinit var db: NotificatorDatabase
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onCreate() {
-        Log.i(TAG, "TTS Service, onCreate")
+        Log.i(TAG, "NotificationForegroundService, onCreate")
         super.onCreate()
         startForeground(1, createNotification())
+        db = NotificatorDatabase.getDatabase(applicationContext)
         initTTS()
     }
 
@@ -46,13 +54,15 @@ class TtsForegroundService : Service() {
         text?.let {
             queue.offer(it)
             processQueue()
-            EventBus.getDefault().post(
-                EventWithDateTimeAndStatus(
-                    "Event",
-                    LocalDateTime.now(),
-                    it
+            EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", LocalDateTime.now(), it))
+            CoroutineScope(Dispatchers.IO).launch {
+                val notification = NotificationEntity(
+                    title = "Event",
+                    content = it,
+                    timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(0))
                 )
-            )
+                db.notificationEntityDao().insert(notification)
+            }
         }
         return START_NOT_STICKY
     }
@@ -64,21 +74,9 @@ class TtsForegroundService : Service() {
                 Log.i(TAG, "TTS on, locale US")
                 ttsInitialized = true
                 processQueue()
-                EventBus.getDefault().post(
-                    EventWithDateTimeAndStatus(
-                        "TTS",
-                        LocalDateTime.now(),
-                        "OK"
-                    )
-                )
+                EventBus.getDefault().post(EventWithDateTimeAndStatus("TTS", LocalDateTime.now(), "OK"))
             } else {
-                EventBus.getDefault().post(
-                    EventWithDateTimeAndStatus(
-                        "TTS",
-                        LocalDateTime.now(),
-                        "NOK"
-                    )
-                )
+                EventBus.getDefault().post(EventWithDateTimeAndStatus("TTS", LocalDateTime.now(), "NOK"))
                 Log.e("TTS", "TTS FAILURE:$status")
                 ttsInitialized = false
 
@@ -137,7 +135,7 @@ class TtsForegroundService : Service() {
                     originalVolume,
                     0
                 )
-                this@TtsForegroundService.isPlaying = false
+                this@NotificationForegroundService.isPlaying = false
                 processQueue()
                 audioManager.abandonAudioFocusRequest(req)
             }
@@ -146,7 +144,7 @@ class TtsForegroundService : Service() {
         } catch (e: IOException) {
             e.printStackTrace()
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
-            this@TtsForegroundService.isPlaying = false
+            this@NotificationForegroundService.isPlaying = false
             processQueue()
             audioManager.abandonAudioFocusRequest(req)
         }

@@ -1,6 +1,5 @@
 package pl.kmalysiak.personalnotificator.main
 
-
 import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import android.widget.Toast
@@ -46,8 +45,8 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
-import pl.kmalysiak.personalnotificator.auth.BackendAuth
-import pl.kmalysiak.personalnotificator.auth.RegisterResult
+import pl.kmalysiak.personalnotificator.auth.BackendAuthService
+import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -70,7 +69,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
 
     val username by viewModel.username
     val password by viewModel.password
-    val backendAuth = BackendAuth()
+    val backendAuthService = BackendAuthService()
     LaunchedEffect(Unit) {
         viewModel.loadCredentials(context)
     }
@@ -103,7 +102,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                 }
 
                 val scope = rememberCoroutineScope()
-                var regResult by remember { mutableStateOf<RegisterResult?>(null) }
+                var regResult by remember { mutableStateOf<BackendAuthResult?>(null) }
 
                 when (selectedTabIndex) {
                     0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, tableData)
@@ -112,7 +111,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                         username, password,
                     ) { inputUser, inputPass ->
                         scope.launch {
-                            regResult = backendAuth.authenticateAndSendCredHomeAsync(context)
+                            regResult = backendAuthService.authenticateAndSendCredHomeAsync(context)
                         }
 
                         regResult?.let {
@@ -120,7 +119,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                                 Toast.makeText(context, "User logged in: $inputUser", Toast.LENGTH_SHORT).show()
                                 viewModel.saveCredentials(context, inputUser, inputPass)
                             } else {
-                                Toast.makeText(context, "User not logged in: $inputUser: ${it.errrorDesc}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "User not logged in: $inputUser: ${it.errorDesc}", Toast.LENGTH_SHORT).show()
                                 viewModel.saveCredentials(context, inputUser, inputPass)
                             }
                         }

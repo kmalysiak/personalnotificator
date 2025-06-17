@@ -1,16 +1,11 @@
 package pl.kmalysiak.personalnotificator
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
-import android.net.Uri
-import android.os.Build
-import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import com.google.android.datatransport.runtime.scheduling.persistence.EventStoreModule_PackageNameFactory.packageName
-import pl.kmalysiak.personalnotificator.ChannelCreator.TTS_CHANNEL_ID
 
 
 object ChannelCreator {
@@ -63,7 +58,7 @@ object ChannelCreator {
 //        val channel = NotificationChannel(
 //            channelId, "TTS Service", NotificationManager.IMPORTANCE_LOW // Set LOW to minimize visibility
 //        )
-//        val manager = getSystemService(NotificationManager::class.java)
+//        val manager = getSystemService(NotificationManager::class.kotlin)
 //        manager.createNotificationChannel(channel)
 //
 //        return NotificationCompat.Builder(this, channelId)

@@ -2,14 +2,10 @@ package pl.kmalysiak.personalnotificator
 
 import android.Manifest
 import android.app.Notification
-import android.app.PendingIntent
 import android.content.Context
-import android.net.Uri
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import pl.kmalysiak.personalnotificator.ChannelCreator.CHANNEL_ID
-import pl.kmalysiak.personalnotificator.ChannelCreator.MOVE_CHANNEL_ID
 
 object NotificationHandler {
 

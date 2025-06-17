@@ -28,7 +28,7 @@
         </activity>
 
         <service
-            android:name=".TtsForegroundService"
+            android:name=".NotificationForegroundService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
             android:permission="android.permission.POST_NOTIFICATIONS"

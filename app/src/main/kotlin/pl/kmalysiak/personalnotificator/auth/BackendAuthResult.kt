@@ -1,7 +1,6 @@
 package pl.kmalysiak.personalnotificator.auth
 
-
-data class RegisterResult(
+data class BackendAuthResult(
     val isRegister: Boolean,
-    val errrorDesc: String
+    val errorDesc: String
 )

@@ -22,8 +22,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
-import pl.kmalysiak.personalnotificator.config.ConfigLoader
 import pl.kmalysiak.personalnotificator.NotificationForegroundService
+import pl.kmalysiak.personalnotificator.config.ConfigLoader
 import pl.kmalysiak.personalnotificator.model.event.PermEvent
 import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import java.time.LocalDateTime

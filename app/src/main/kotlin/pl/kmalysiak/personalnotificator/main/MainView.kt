@@ -1,7 +1,5 @@
 package pl.kmalysiak.personalnotificator.main
 
-import android.content.Context.MODE_PRIVATE
-import android.content.SharedPreferences
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
@@ -42,24 +42,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
-import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
+import pl.kmalysiak.personalnotificator.auth.BackendAuthService
+import pl.kmalysiak.personalnotificator.preference.PreferencesUtil
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-const val PREFS_NAME = "NotificationSettings"
-const val KEY_NOTIF_GATE_OPENED = "notifications_enabled"
-const val KEY_NOTIF_GATE_CLOSED = "notifications_enabled"
-const val KEY_NOTIF_MOVEMENT = "notifications_enabled"
 val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
 @Composable
 fun MainView(viewModel: AppViewModel = viewModel()) {
     val context = LocalContext.current
-    val prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
     val token by viewModel.token.collectAsState()
     val tableData by viewModel.tableData.collectAsState()
     val permissionData by viewModel.permissionData.collectAsState()
@@ -106,7 +101,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
 
                 when (selectedTabIndex) {
                     0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, tableData)
-                    1 -> TabSettings(prefs, token, permissionData)
+                    1 -> TabSettings(token, permissionData)
                     2 -> TabCredentials(
                         username, password,
                     ) { inputUser, inputPass ->
@@ -191,95 +186,42 @@ fun TabCredentials(
 
 @Composable
 fun TabSettings(
-    prefs: SharedPreferences,
     token: String,
     permissionData: List<Triple<String, LocalDateTime, String>>
 ) {
 
-    var notifGateOpened by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                KEY_NOTIF_GATE_OPENED, true
-            )
-        )
-    }
-    var notifGateClosed by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                KEY_NOTIF_GATE_CLOSED, true
-            )
-        )
-    }
-    var notifMovement by remember {
-        mutableStateOf(
-            prefs.getBoolean(
-                KEY_NOTIF_MOVEMENT,
-                true
-            )
-        )
+    val items = remember {
+        mutableStateOf(PreferencesUtil.get().getForDisplay())
     }
 
+    Column {
 
-    Text(text = "Notification Config", style = MaterialTheme.typography.bodyLarge)
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween, // Space between the Switch and Text
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Switch(
-            checked = notifGateOpened, onCheckedChange = { isChecked ->
-                notifGateOpened = isChecked
-                prefs.edit { putBoolean(KEY_NOTIF_GATE_OPENED, isChecked) }
-            })
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = "Gate closure",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
+        items.value.forEach { item ->
+
+            Row(modifier = Modifier
+                    .padding(vertical = 8.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                Switch(
+                    checked = item.enabled,
+                    onCheckedChange = { checked ->
+                        PreferencesUtil.get().setPreference(item.name, checked)
+                        items.value = PreferencesUtil.get().getForDisplay()
+                    }
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.bodyLarge
+
+                )
+            }
+        }
     }
 
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Switch(
-            checked = notifGateClosed, onCheckedChange = { isChecked ->
-                notifGateClosed = isChecked
-                prefs.edit { putBoolean(KEY_NOTIF_GATE_CLOSED, isChecked) }
-            })
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = "Gate opening",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
-    }
-
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Switch(
-            checked = notifMovement, onCheckedChange = { isChecked ->
-                notifMovement = isChecked
-                prefs.edit { putBoolean(KEY_NOTIF_MOVEMENT, isChecked) }
-            })
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = "Movement",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
-    }
     HorizontalDivider()
 
 
@@ -353,7 +295,7 @@ fun TabEvents(
     ) {
         Text(text = "Last opening:", style = MaterialTheme.typography.bodyLarge)
         Text(
-            text = dateFormatter.format(lastGateOpened),
+            text = if (lastGateOpened ==  LocalDateTime.MIN) "-" else dateFormatter.format(lastGateOpened),
             style = MaterialTheme.typography.bodyLarge,
 
             )
@@ -368,7 +310,7 @@ fun TabEvents(
     ) {
         Text(text = "Last closure:", style = MaterialTheme.typography.bodyLarge)
         Text(
-            text = dateFormatter.format(lastGateClosed),
+            if (lastGateOpened ==  LocalDateTime.MIN) "-" else dateFormatter.format(lastGateClosed),
             style = MaterialTheme.typography.bodyLarge,
 
             )
@@ -383,16 +325,22 @@ fun TabEvents(
     ) {
         Text(text = "Last movement:", style = MaterialTheme.typography.bodyLarge)
         Text(
-            text = dateFormatter.format(lastMovement),
+            if (lastGateOpened ==  LocalDateTime.MIN) "-" else dateFormatter.format(lastMovement),
             style = MaterialTheme.typography.bodyLarge,
         )
     }
 
     Text("Events", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
 
-    Column {
-        tableData.forEach { (event, dateTime, desc) ->
-            Row(modifier = Modifier.fillMaxWidth()) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(tableData) { (event, dateTime, desc) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp, horizontal = 8.dp)
+            ){
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     Text(text = event)
                 }

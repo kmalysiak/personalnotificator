@@ -26,7 +26,7 @@ object NotificationHandler {
         ChannelCreator.createNotificationChannel(ctx)
         val builder = NotificationCompat.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("TTS service started")
+            .setContentTitle("Powiadamiacz TTS wystartował!")
             //.setContentText("Type: $type")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setSound(null)

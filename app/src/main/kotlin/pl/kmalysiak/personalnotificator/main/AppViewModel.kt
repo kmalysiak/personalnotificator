@@ -7,10 +7,11 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
@@ -20,12 +21,18 @@ import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.model.event.PermEvent
 import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
+import pl.kmalysiak.personalnotificator.preference.PreferencesUtil
+import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 //
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _token = MutableStateFlow("Token unknown")
     private val _tableData = MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
+
+
     private val _permissionData = MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
     internal val token: StateFlow<String> get() = _token
     internal val tableData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _tableData
@@ -61,7 +68,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         EventBus.getDefault().register(this)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val daos = dao.getAll()
+            val fl = daos.map { entity ->
+                Triple(
+                    entity.entType,
+                    toLocalDateTime(entity.timestamp),
+                    entity.content
+                )
+            }
+            _tableData.value = fl
+            val lastEvents = filterLastEvents(daos)
+            _lastGateOpened.value = lastEvents.first
+            _lastGateClosed.value = lastEvents.second
+            _lastMovement.value = lastEvents.third
+        }
     }
+
+    private fun CoroutineScope.filterLastEvents(entities: List<NotificationEntity>): Triple<LocalDateTime, LocalDateTime, LocalDateTime> {
+        val sorted = entities.sortedByDescending { it.timestamp }
+        return Triple(
+            toLocalDateTime(sorted.firstOrNull { it.entType == "entry" && "otwarta".contains(it.content) }?.timestamp ?: -1),
+            toLocalDateTime(sorted.firstOrNull { it.entType == "entry" && "zamknięta".contains(it.content) }?.timestamp ?: -1),
+            toLocalDateTime(sorted.firstOrNull { it.entType == "move" }?.timestamp ?: -1)
+        )
+    }
+
 
     override fun onCleared() {
         super.onCleared()
@@ -76,10 +109,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onDateTimeEvent(event: EventWithDateTimeAndStatus) {
-        val newRow = Triple(event.type, event.dt, event.status)
-        _tableData.value = _tableData.value + newRow
-        //  Log.d(TAG, "Topic event received:${event.msg}")
+        viewModelScope.launch(Dispatchers.IO) {
+            val fl = dao.getAll().map { entity ->
+                Triple(
+                    entity.entType,
+                    toLocalDateTime(entity.timestamp),
+                    entity.content
+                )
+            }
+            _tableData.value = fl
+
+            val prefs = PreferencesUtil.get()
+            prefs.updatePreferences(fl.map { e -> e.first })
+
+        }
     }
+
+    private fun toLocalDateTime(timestamp: Long): LocalDateTime = if(timestamp == -1L) LocalDateTime.MIN else Instant.ofEpochSecond(timestamp).atZone(ZoneId.of("Europe/Warsaw")).toLocalDateTime()
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onPermEvent(event: PermEvent) {
@@ -88,7 +134,4 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(ContentValues.TAG, "onPermEvent:${event}")
     }
 
-    val notifications: StateFlow<List<NotificationEntity>> =
-        dao.getAll()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }

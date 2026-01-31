@@ -44,10 +44,18 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         Log.i(TAG, "Msg received")
         if (remoteMessage.data.isEmpty()) return
 
-        val type = remoteMessage.data["type"] ?: return
-        Log.i(TAG, "Starting TTS for msg type:" + type)
+        val entFriendlyName = remoteMessage.data["entityFriendlyName"] ?: return
+        val type = remoteMessage.data["type"] ?: "nieznany"
+        val msg = remoteMessage.data["msg"] ?: ""
+        val timestamp =  remoteMessage.data["timestamp"]?.toLongOrNull() ?: return
+
+
+        Log.i(TAG, "Starting TTS for msg type:$entFriendlyName $msg")
         val intent = Intent(this, NotificationForegroundService::class.java).apply {
-            putExtra("notificationText", type)
+            putExtra("entFriendlyName", entFriendlyName)
+            putExtra("entType", type)
+            putExtra("notificationContent", msg)
+            putExtra("notificationTimestamp", timestamp)
         }
         //usage of heavy work should not be done directly at onMessageReceiced as system
         //might kill it silently; better start foreground service

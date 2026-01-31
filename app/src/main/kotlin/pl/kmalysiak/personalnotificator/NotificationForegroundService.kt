@@ -15,18 +15,20 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.annotation.RequiresPermission
-import androidx.room.Room
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
+import pl.kmalysiak.personalnotificator.preference.PreferencesUtil
 import java.io.File
 import java.io.IOException
+import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.time.ZoneId
 import java.util.LinkedList
 import java.util.Locale
 import java.util.Queue
@@ -39,6 +41,11 @@ class NotificationForegroundService : Service() {
     private var ttsInitialized = false
     private lateinit var wavFile: File
     private lateinit var db: NotificatorDatabase
+
+    private val serviceScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO
+    )
+
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onCreate() {
         Log.i(TAG, "NotificationForegroundService, onCreate")
@@ -48,20 +55,33 @@ class NotificationForegroundService : Service() {
         initTTS()
     }
 
+    //tutaj wchodzi wywołanie powiadomień
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val text = intent?.getStringExtra("notificationText")
-        text?.let {
-            queue.offer(it)
-            processQueue()
-            EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", LocalDateTime.now(), it))
-            CoroutineScope(Dispatchers.IO).launch {
+        val int = intent?:return START_NOT_STICKY
+
+        val text = (int.getStringExtra("entFriendlyName")?:"nieznany") + ", " +  (intent.getStringExtra("notificationContent")?:"nieznany")
+
+        text.let {
+            serviceScope.launch {
                 val notification = NotificationEntity(
-                    title = "Event",
-                    content = it,
-                    timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(0))
+                    entFriendlyName = int.getStringExtra("entFriendlyName") ?:"nieznany",
+                    entType = int.getStringExtra("entType") ?:"nieznany",
+                    content =  int.getStringExtra("notificationContent") ?: "",
+                    timestamp = int.getLongExtra("notificationTimestamp",  Instant.now().epochSecond)
                 )
                 db.notificationEntityDao().insert(notification)
+                db.notificationEntityDao().keepLatest500()
+                if(PreferencesUtil.get().getByName(notification.entType)) {
+                    queue.offer(it)
+                    processQueue()
+                } else {
+                    Log.i("TTS","TTS dla powiadomienia:${notification.entFriendlyName} jest wyłączone w preferencjach")
+                }
+                val dateTime = Instant.ofEpochSecond(notification.timestamp)
+                    .atZone(ZoneId.of("Europe/Warsaw"))
+                    .toLocalDateTime()
+                EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", dateTime, it))
             }
         }
         return START_NOT_STICKY

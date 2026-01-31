@@ -26,6 +26,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import kotlin.collections.map
 
 //
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -122,6 +123,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val prefs = PreferencesUtil.get()
             prefs.updatePreferences(fl.map { e -> e.first })
 
+        }
+    }
+
+    fun clearDb() {
+        viewModelScope.launch(Dispatchers.IO) {
+            dao.deleteALl()
+            _tableData.value = mutableListOf()
+            val lastEvents = filterLastEvents(mutableListOf())
+            _lastGateOpened.value = lastEvents.first
+            _lastGateClosed.value = lastEvents.second
+            _lastMovement.value = lastEvents.third
         }
     }
 

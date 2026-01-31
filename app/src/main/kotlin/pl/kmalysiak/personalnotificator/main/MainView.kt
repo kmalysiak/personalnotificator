@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -65,6 +66,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     val username by viewModel.username
     val password by viewModel.password
     val backendAuthService = BackendAuthService()
+
     LaunchedEffect(Unit) {
         viewModel.loadCredentials(context)
     }
@@ -101,6 +103,12 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
 
                 when (selectedTabIndex) {
                     0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, tableData)
+                    { ->
+                        scope.launch {
+                            viewModel.clearDb()
+                        }
+                    }
+
                     1 -> TabSettings(token, permissionData)
                     2 -> TabCredentials(
                         username, password,
@@ -198,7 +206,8 @@ fun TabSettings(
 
         items.value.forEach { item ->
 
-            Row(modifier = Modifier
+            Row(
+                modifier = Modifier
                     .padding(vertical = 8.dp)
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -284,7 +293,8 @@ fun TabEvents(
     lastGateOpened: LocalDateTime,
     lastGateClosed: LocalDateTime,
     lastMovement: LocalDateTime,
-    tableData: List<Triple<String, LocalDateTime, String>>
+    tableData: List<Triple<String, LocalDateTime, String>>,
+    onDbClear: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -295,7 +305,7 @@ fun TabEvents(
     ) {
         Text(text = "Last opening:", style = MaterialTheme.typography.bodyLarge)
         Text(
-            text = if (lastGateOpened ==  LocalDateTime.MIN) "-" else dateFormatter.format(lastGateOpened),
+            text = if (lastGateOpened == LocalDateTime.MIN) "-" else dateFormatter.format(lastGateOpened),
             style = MaterialTheme.typography.bodyLarge,
 
             )
@@ -310,7 +320,7 @@ fun TabEvents(
     ) {
         Text(text = "Last closure:", style = MaterialTheme.typography.bodyLarge)
         Text(
-            if (lastGateOpened ==  LocalDateTime.MIN) "-" else dateFormatter.format(lastGateClosed),
+            if (lastGateOpened == LocalDateTime.MIN) "-" else dateFormatter.format(lastGateClosed),
             style = MaterialTheme.typography.bodyLarge,
 
             )
@@ -325,12 +335,26 @@ fun TabEvents(
     ) {
         Text(text = "Last movement:", style = MaterialTheme.typography.bodyLarge)
         Text(
-            if (lastGateOpened ==  LocalDateTime.MIN) "-" else dateFormatter.format(lastMovement),
+            if (lastGateOpened == LocalDateTime.MIN) "-" else dateFormatter.format(lastMovement),
             style = MaterialTheme.typography.bodyLarge,
         )
     }
 
     Text("Events", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+
+    Button(
+        onClick = { onDbClear() },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Force refresh list")
+    }
+
+    Button(
+        onClick = { onDbClear() },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text("Clear events list")
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize()
@@ -340,7 +364,7 @@ fun TabEvents(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp, horizontal = 8.dp)
-            ){
+            ) {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     Text(text = event)
                 }
@@ -356,4 +380,9 @@ fun TabEvents(
             }
         }
     }
+
+    
+
+
 }
+

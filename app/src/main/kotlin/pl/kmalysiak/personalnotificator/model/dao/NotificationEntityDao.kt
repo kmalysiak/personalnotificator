@@ -13,6 +13,8 @@ interface NotificationEntityDao {
     @Query("SELECT * FROM notification ORDER BY timestamp DESC")
     fun getAll(): List<NotificationEntity>
 
+    @Query("DELETE  FROM notification")
+    public fun deleteALl()
 
     @Query("""
 DELETE FROM notification

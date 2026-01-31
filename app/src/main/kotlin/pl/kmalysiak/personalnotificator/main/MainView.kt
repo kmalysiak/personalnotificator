@@ -1,6 +1,9 @@
 package pl.kmalysiak.personalnotificator.main
 
 import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -40,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -56,6 +61,7 @@ import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.preference.PreferencesUtil
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.coroutines.cancellation.CancellationException
 
 val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
@@ -68,7 +74,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     val lastGateOpened by viewModel.lastGateOpened.collectAsState()
     val lastGateClosed by viewModel.lastGateClosed.collectAsState()
     val lastMovement by viewModel.lastMovement.collectAsState()
-
+    val lastRefreshed by viewModel.lastRefreshed.collectAsState()
     val username by viewModel.username
     val password by viewModel.password
     val backendAuthService = BackendAuthService()
@@ -108,7 +114,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                 var regResult by remember { mutableStateOf<BackendAuthResult?>(null) }
 
                 when (selectedTabIndex) {
-                    0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, tableData)
+                    0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, lastRefreshed, tableData)
                     { ->
                         scope.launch {
                             viewModel.clearDb()
@@ -299,52 +305,15 @@ fun TabEvents(
     lastGateOpened: LocalDateTime,
     lastGateClosed: LocalDateTime,
     lastMovement: LocalDateTime,
+    lastRefreshed: LocalDateTime,
     tableData: List<Triple<String, LocalDateTime, String>>,
     onDbClear: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween, // Space between the Switch and Text
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = "Last opening:", style = MaterialTheme.typography.bodyLarge)
-        Text(
-            text = if (lastGateOpened == LocalDateTime.MIN) "-" else dateFormatter.format(lastGateOpened),
-            style = MaterialTheme.typography.bodyLarge,
 
-            )
-    }
-
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween, // Space between the Switch and Text
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = "Last closure:", style = MaterialTheme.typography.bodyLarge)
-        Text(
-            if (lastGateOpened == LocalDateTime.MIN) "-" else dateFormatter.format(lastGateClosed),
-            style = MaterialTheme.typography.bodyLarge,
-
-            )
-    }
-
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween, // Space between the Switch and Text
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = "Last movement:", style = MaterialTheme.typography.bodyLarge)
-        Text(
-            if (lastGateOpened == LocalDateTime.MIN) "-" else dateFormatter.format(lastMovement),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-    }
+    LastEventDateTime("Last  opened:", lastGateOpened)
+    LastEventDateTime("Last  closed:", lastGateClosed)
+    LastEventDateTime("Last move:", lastMovement)
+    LastEventDateTime("Last refreshed:", lastRefreshed)
 
     Text("Events", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
 
@@ -367,24 +336,15 @@ fun TabEvents(
             Text("Refresh")
         }
 
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.scrim)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = {
-                            onDbClear()
-                        },
-                    )
-                }
-                .padding(2.dp)
-                .height(48.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("Clear", color = Color.White)
-        }
+        LongPressButton(
+            text = "Clear",
+            onConfirmed = {
+                onDbClear()
+            },
+            modifier = Modifier .weight(1f).height(48.dp),
+            holdDuration = 2000L
+        )
+
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize()
@@ -412,60 +372,92 @@ fun TabEvents(
     }
 }
 
-//@Composable
-//fun LongPressButton(
-//    text: String,
-//    onLongPress: () -> Unit,
-//    modifier: Modifier = Modifier,
-//    holdDuration: Long = 1000L // 1 second to trigger
-//) {
-//    var progress by remember { mutableStateOf(0f) }
-//    var isPressed by remember { mutableStateOf(false) }
-//
-//    Box(
-//        modifier = modifier
-//            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-//            .clip(RoundedCornerShape(8.dp))
-//            .pointerInput(Unit) {
-//                detectTapGestures(
-//                    onPress = {
-//                        isPressed = true
-//                        progress = 0f
-//                        val startTime = System.currentTimeMillis()
-//                        tryAwaitRelease()
-//                        val endTime = System.currentTimeMillis()
-//                        isPressed = false
-//                        if (endTime - startTime >= holdDuration) {
-//                            onLongPress()
-//                        }
-//                    }
-//                )
-//            },
-//        contentAlignment = Alignment.Center
-//    ) {
-//        // Moving progress bar
-//        if (isPressed) {
-//            LinearProgressIndicator(
-//                progress = progress,
-//                modifier = Modifier
-//                    .matchParentSize()
-//                    .clip(RoundedCornerShape(8.dp)),
-//                color = MaterialTheme.colorScheme.secondary,
-//                backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-//            )
-//
-//            LaunchedEffect(isPressed) {
-//                val startTime = System.currentTimeMillis()
-//                while (isPressed) {
-//                    val elapsed = System.currentTimeMillis() - startTime
-//                    progress = (elapsed / holdDuration.toFloat()).coerceIn(0f, 1f)
-//                    delay(16) // ~60fps
-//                }
-//                progress = 0f
-//            }
-//        }
-//
-//        Text(text, color = MaterialTheme.colorScheme.onPrimary)
-//    }
-//}
+@Composable
+private fun LastEventDateTime(text:String, lastRefreshed: LocalDateTime) {
+    Row(
+        modifier = Modifier
+            .padding(vertical = 8.dp)
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween, // Space between the Switch and Text
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = text, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            if (lastRefreshed == LocalDateTime.MIN) "-" else dateFormatter.format(lastRefreshed),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
 
+@Composable
+fun LongPressButton(
+    text: String,
+    onConfirmed: () -> Unit,
+    modifier: Modifier = Modifier,
+    holdDuration: Long = 1000L
+) {
+    val progress = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    var isPressed by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primary)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+
+                        val job = scope.launch {
+                            try {
+                                progress.animateTo(
+                                    1f,
+                                    animationSpec = tween(
+                                        durationMillis = holdDuration.toInt(),
+                                        easing = LinearEasing
+                                    )
+                                )
+                                // Tylko jeśli animacja się skończyła (nie została anulowana)
+                                if (isPressed) {
+                                    onConfirmed()
+                                }
+                            } catch (e: CancellationException) {
+                                // Animacja została przerwana - OK
+                            }
+                        }
+
+                        tryAwaitRelease()
+
+                        // Puszczono przycisk - anuluj
+                        isPressed = false
+                        job.cancel()
+                        scope.launch {
+                            progress.animateTo(0f, animationSpec = tween(200))
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+
+
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.onPrimary,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+
+        // Progress bar jako tło
+        LinearProgressIndicator(
+            progress = { progress.value },
+            modifier = Modifier
+                .fillMaxSize()
+                //.clip(RoundedCornerShape(8.dp))
+                .alpha(0.6f), // Przezroczystość żeby tekst był widoczny
+            color = Color.Yellow,
+            trackColor = Color.Transparent
+        )
+    }
+}

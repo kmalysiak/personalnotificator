@@ -44,7 +44,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     internal val lastGateClosed: StateFlow<LocalDateTime> get() = _lastGateClosed
     private val _lastMovement = MutableStateFlow(LocalDateTime.of(2025, 1, 3, 3, 4, 5))
     internal val lastMovement: StateFlow<LocalDateTime> get() = _lastMovement
-
+    private val _lastRefreshed = MutableStateFlow(LocalDateTime.of(2025, 1, 3, 3, 4, 5))
+    internal val lastRefreshed: StateFlow<LocalDateTime> get() = _lastRefreshed
     private val db = NotificatorDatabase.getDatabase(application)
     private val dao = db.notificationEntityDao()
 
@@ -74,7 +75,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val daos = dao.getAll()
             val fl = daos.map { entity ->
                 Triple(
-                    entity.entType,
+                    entity.entFriendlyName,
                     toLocalDateTime(entity.timestamp),
                     entity.content
                 )
@@ -113,12 +114,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val fl = dao.getAll().map { entity ->
                 Triple(
-                    entity.entType,
+                    entity.entFriendlyName,
                     toLocalDateTime(entity.timestamp),
                     entity.content
                 )
             }
             _tableData.value = fl
+            _lastRefreshed.value = LocalDateTime.now()
 
             val prefs = PreferencesUtil.get()
             prefs.updatePreferences(fl.map { e -> e.first })

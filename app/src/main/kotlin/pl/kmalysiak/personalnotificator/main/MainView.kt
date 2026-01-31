@@ -1,6 +1,8 @@
 package pl.kmalysiak.personalnotificator.main
 
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,14 +11,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +40,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -342,20 +348,44 @@ fun TabEvents(
 
     Text("Events", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
 
-    Button(
-        onClick = { onDbClear() },
-
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        Text("Force refresh list")
+
+        Button(
+            onClick = { },
+            modifier = Modifier
+                .padding(2.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.primary)
+                .weight(1f)
+                .height(48.dp)
+        ) {
+            Text("Refresh")
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.scrim)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = {
+                            onDbClear()
+                        },
+                    )
+                }
+                .padding(2.dp)
+                .height(48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Clear", color = Color.White)
+        }
     }
-
-    Button(
-        onClick = { onDbClear() },
-
-    ) {
-        Text("Clear events list")
-    }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -380,9 +410,62 @@ fun TabEvents(
             }
         }
     }
-
-
-
-
 }
+
+//@Composable
+//fun LongPressButton(
+//    text: String,
+//    onLongPress: () -> Unit,
+//    modifier: Modifier = Modifier,
+//    holdDuration: Long = 1000L // 1 second to trigger
+//) {
+//    var progress by remember { mutableStateOf(0f) }
+//    var isPressed by remember { mutableStateOf(false) }
+//
+//    Box(
+//        modifier = modifier
+//            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+//            .clip(RoundedCornerShape(8.dp))
+//            .pointerInput(Unit) {
+//                detectTapGestures(
+//                    onPress = {
+//                        isPressed = true
+//                        progress = 0f
+//                        val startTime = System.currentTimeMillis()
+//                        tryAwaitRelease()
+//                        val endTime = System.currentTimeMillis()
+//                        isPressed = false
+//                        if (endTime - startTime >= holdDuration) {
+//                            onLongPress()
+//                        }
+//                    }
+//                )
+//            },
+//        contentAlignment = Alignment.Center
+//    ) {
+//        // Moving progress bar
+//        if (isPressed) {
+//            LinearProgressIndicator(
+//                progress = progress,
+//                modifier = Modifier
+//                    .matchParentSize()
+//                    .clip(RoundedCornerShape(8.dp)),
+//                color = MaterialTheme.colorScheme.secondary,
+//                backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+//            )
+//
+//            LaunchedEffect(isPressed) {
+//                val startTime = System.currentTimeMillis()
+//                while (isPressed) {
+//                    val elapsed = System.currentTimeMillis() - startTime
+//                    progress = (elapsed / holdDuration.toFloat()).coerceIn(0f, 1f)
+//                    delay(16) // ~60fps
+//                }
+//                progress = 0f
+//            }
+//        }
+//
+//        Text(text, color = MaterialTheme.colorScheme.onPrimary)
+//    }
+//}
 

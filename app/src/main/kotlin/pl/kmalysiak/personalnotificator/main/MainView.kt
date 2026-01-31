@@ -344,14 +344,14 @@ fun TabEvents(
 
     Button(
         onClick = { onDbClear() },
-        modifier = Modifier.fillMaxWidth(),
+
     ) {
         Text("Force refresh list")
     }
 
     Button(
         onClick = { onDbClear() },
-        modifier = Modifier.fillMaxWidth(),
+
     ) {
         Text("Clear events list")
     }
@@ -381,7 +381,7 @@ fun TabEvents(
         }
     }
 
-    
+
 
 
 }

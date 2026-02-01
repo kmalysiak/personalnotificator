@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -456,10 +457,11 @@ fun LongPressButton(
             progress = { progress.value },
             modifier = Modifier
                 .fillMaxSize()
-                //.clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .alpha(0.6f), // Przezroczystość żeby tekst był widoczny
             color = Color.Yellow,
-            trackColor = Color.Transparent
+            trackColor = Color.Transparent,
+            strokeCap = StrokeCap.Butt
         )
     }
 }

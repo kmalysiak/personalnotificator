@@ -52,6 +52,7 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.i(TAG, "Starting TTS for msg type:$entFriendlyName $msg")
         val intent = Intent(this, NotificationForegroundService::class.java).apply {
+            putExtra("source", "onMessageReceived")
             putExtra("entFriendlyName", entFriendlyName)
             putExtra("entType", type)
             putExtra("notificationContent", msg)

@@ -2,6 +2,7 @@ package pl.kmalysiak.personalnotificator
 
 import android.Manifest
 import android.app.Notification
+import android.app.NotificationManager
 import android.content.Context
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
@@ -32,6 +33,20 @@ object NotificationHandler {
             .setSound(null)
        return builder.build()
     }
+
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    fun getNotificationWithForHealthCheck(type: String, ctx:Context): Notification {
+        ChannelCreator.createNotificationChannel(ctx)
+        val builder = NotificationCompat.Builder(ctx, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("HelathCheck wystartował!")
+            //.setContentText("Type: $type")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSound(null)
+        return builder.build()
+    }
+
+
 
 //    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
 //    fun showNotificationMovement(type: String, soundUri: Uri, ctx:Context) {

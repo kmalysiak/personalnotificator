@@ -35,6 +35,12 @@
             android:permission="android.permission.POST_NOTIFICATIONS"
             />
         <service
+            android:name=".HeartBeatMonitor"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:permission="android.permission.POST_NOTIFICATIONS"
+            />
+        <service
             android:name=".AppFirebaseMessagingService"
             android:exported="true">
             <intent-filter>

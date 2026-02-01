@@ -18,12 +18,13 @@ import org.greenrobot.eventbus.ThreadMode
 import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
+import pl.kmalysiak.personalnotificator.model.event.HeartbeatEvent
 import pl.kmalysiak.personalnotificator.model.event.PermEvent
 import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
-import pl.kmalysiak.personalnotificator.preference.PreferencesUtil
+import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
+
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.collections.map
@@ -46,6 +47,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     internal val lastMovement: StateFlow<LocalDateTime> get() = _lastMovement
     private val _lastRefreshed = MutableStateFlow(LocalDateTime.of(2025, 1, 3, 3, 4, 5))
     internal val lastRefreshed: StateFlow<LocalDateTime> get() = _lastRefreshed
+
+    private val _lastHeartBeat = MutableStateFlow(LocalDateTime.of(2025, 1, 3, 3, 4, 5))
+    internal val lastHeartbeat: StateFlow<LocalDateTime> get() = _lastHeartBeat
+
     private val db = NotificatorDatabase.getDatabase(application)
     private val dao = db.notificationEntityDao()
 
@@ -120,10 +125,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             _tableData.value = fl
-            _lastRefreshed.value = LocalDateTime.now()
+            _lastRefreshed.value =  Instant.now()
+                .atZone(ZoneId.of("Europe/Warsaw"))
+                .toLocalDateTime()
 
-            val prefs = PreferencesUtil.get()
+            val prefs = PreferencesDataUtil.get()
             prefs.updatePreferences(fl.map { e -> e.first })
+
+        }
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onHeartBeatEvent(event: HeartbeatEvent) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _lastHeartBeat.value = event.timestamp
 
         }
     }

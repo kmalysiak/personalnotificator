@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.core.content.edit
 
 
-class PreferencesUtil private constructor(context: Context) {
+class PreferencesDataUtil private constructor(context: Context) {
 
     private val prefs =
         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -16,17 +16,17 @@ class PreferencesUtil private constructor(context: Context) {
     private fun strip(key: String) = key.removePrefix(PREFIX)
 
     companion object {
-        private lateinit var INSTANCE: PreferencesUtil
+        private lateinit var INSTANCE: PreferencesDataUtil
 
         /** Call once from Application.onCreate() */
         fun init(context: Context) {
             if (!::INSTANCE.isInitialized) {
-                INSTANCE = PreferencesUtil(context.applicationContext)
+                INSTANCE = PreferencesDataUtil(context.applicationContext)
             }
         }
 
         /** Access singleton anywhere */
-        fun get(): PreferencesUtil {
+        fun get(): PreferencesDataUtil {
             if (!::INSTANCE.isInitialized) {
                 throw IllegalStateException("PreferencesUtil not initialized")
             }

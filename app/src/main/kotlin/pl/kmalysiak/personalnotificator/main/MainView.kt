@@ -58,7 +58,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
-import pl.kmalysiak.personalnotificator.preference.PreferencesUtil
+import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.coroutines.cancellation.CancellationException
@@ -75,6 +75,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     val lastGateClosed by viewModel.lastGateClosed.collectAsState()
     val lastMovement by viewModel.lastMovement.collectAsState()
     val lastRefreshed by viewModel.lastRefreshed.collectAsState()
+    val lastHeartbeat by viewModel.lastHeartbeat.collectAsState()
     val username by viewModel.username
     val password by viewModel.password
     val backendAuthService = BackendAuthService()
@@ -114,7 +115,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                 var regResult by remember { mutableStateOf<BackendAuthResult?>(null) }
 
                 when (selectedTabIndex) {
-                    0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, lastRefreshed, tableData)
+                    0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, lastRefreshed, lastHeartbeat, tableData)
                     { ->
                         scope.launch {
                             viewModel.clearDb()
@@ -211,7 +212,7 @@ fun TabSettings(
 ) {
 
     val items = remember {
-        mutableStateOf(PreferencesUtil.get().getForDisplay())
+        mutableStateOf(PreferencesDataUtil.get().getForDisplay())
     }
 
     Column {
@@ -228,8 +229,8 @@ fun TabSettings(
                 Switch(
                     checked = item.enabled,
                     onCheckedChange = { checked ->
-                        PreferencesUtil.get().setPreference(item.name, checked)
-                        items.value = PreferencesUtil.get().getForDisplay()
+                        PreferencesDataUtil.get().setPreference(item.name, checked)
+                        items.value = PreferencesDataUtil.get().getForDisplay()
                     }
                 )
                 Spacer(modifier = Modifier.width(16.dp))
@@ -306,6 +307,7 @@ fun TabEvents(
     lastGateClosed: LocalDateTime,
     lastMovement: LocalDateTime,
     lastRefreshed: LocalDateTime,
+    lastHeartbeat: LocalDateTime,
     tableData: List<Triple<String, LocalDateTime, String>>,
     onDbClear: () -> Unit
 ) {
@@ -314,7 +316,7 @@ fun TabEvents(
     LastEventDateTime("Last  closed:", lastGateClosed)
     LastEventDateTime("Last move:", lastMovement)
     LastEventDateTime("Last refreshed:", lastRefreshed)
-
+    LastEventDateTime("Last heartbeat:", lastHeartbeat)
     Text("Events", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
 
     Row(

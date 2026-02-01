@@ -1,13 +1,15 @@
 package pl.kmalysiak.personalnotificator
 
 import android.app.Application
-import pl.kmalysiak.personalnotificator.preference.PreferencesUtil
+import pl.kmalysiak.personalnotificator.preference.HeartbeatDataUtil
+import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 
 class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        PreferencesUtil.init(this)
+        PreferencesDataUtil.init(this)
+        HeartbeatDataUtil.init(this)
     }
 
     companion object {

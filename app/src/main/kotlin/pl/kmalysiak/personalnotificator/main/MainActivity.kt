@@ -22,6 +22,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
+import pl.kmalysiak.personalnotificator.HeartBeatMonitor
 import pl.kmalysiak.personalnotificator.NotificationForegroundService
 import pl.kmalysiak.personalnotificator.config.ConfigLoader
 import pl.kmalysiak.personalnotificator.model.event.PermEvent
@@ -49,9 +50,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val intent = Intent(this, NotificationForegroundService::class.java)
-        startForegroundService(intent)
 
+        startForegroundService(Intent(this, NotificationForegroundService::class.java))
+        startForegroundService(Intent(this, HeartBeatMonitor::class.java))
 
         enableEdgeToEdge()
         setContent {
@@ -167,5 +168,11 @@ class MainActivity : ComponentActivity() {
             Log.d("PERMISSION", "Notification permission denied")
             // Optionally show rationale or fallback
         }
+    }
+
+
+    private fun startMonitoringService() {
+
+        startForegroundService(intent)
     }
 }

@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -30,26 +31,26 @@ import kotlin.math.min
 
 class HeartBeatMonitor : Service() {
     private val handler = Handler(Looper.getMainLooper())
-    private var checkInterval = 120000L // 2 min
-    private val normalInterval = 120000L
-    private val maxInterval = 300000L // max 5 min
+    private val checkInterval = 120_000L // 2 min
     private val client = OkHttpClient()
     private lateinit var db: NotificatorDatabase
-    private var newState : Boolean = true;
+    private var newState: Boolean = true;
     private val checkRunnable = object : Runnable {
         override fun run() {
             checkServerHealth()
-            handler.postDelayed(this, checkInterval)
         }
     }
-
+    private val serviceScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO
+    )
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(2, createNotification())
-        handler.post(checkRunnable)
-        ConfigLoader.init(this)
-        db = NotificatorDatabase.getDatabase(applicationContext)
-
+        serviceScope.launch(Dispatchers.IO) {
+            ConfigLoader.init(this@HeartBeatMonitor)
+            db = NotificatorDatabase.getDatabase(applicationContext)
+            checkRunnable.run()
+        }
         return START_STICKY
     }
 
@@ -60,8 +61,7 @@ class HeartBeatMonitor : Service() {
     }
 
     private fun checkServerHealth() {
-
-        CoroutineScope(Dispatchers.IO).launch {
+       serviceScope.launch {
             try {
                 val request = Request.Builder()
                     .url(ConfigLoader.getConfig().apiUrl + "api/heartbeat")
@@ -69,56 +69,38 @@ class HeartBeatMonitor : Service() {
 
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        checkInterval = normalInterval
                         Log.d("ServerMonitor", "OK. Następne sprawdzenie za: ${checkInterval / 1000}s")
                         newState = true;
                     } else {
-                        handleServerDown("Błąd: ${response.code}")
+                        Log.d("ServerMonitor", "Błąd:${response.code}, Następne sprawdzenie za: ${checkInterval / 1000}s")
                         newState = false;
                     }
                 }
             } catch (e: IOException) {
-                handleServerDown("Brak połączenia: ${e.message}")
+                Log.d("ServerMonitor", "Błąd:${e.message}, Następne sprawdzenie za: ${checkInterval / 1000}s")
                 newState = false;
             } finally {
-                val now =  Instant.now()
-                EventBus.getDefault().post(HeartbeatEvent(DateTimeUtil.nowToWarsawDt(), newState.toString()))
+                val now = Instant.now()
+                EventBus.getDefault().post(HeartbeatEvent(DateTimeUtil.toWarsawDt(now), newState.toString()))
                 val stateChanged = HeartbeatDataUtil.get().updateHeartbeatState(now, if (newState) "OK" else "NOK")
 
                 if (stateChanged) {
                     EventBus.getDefault().post(EventWithDateTimeAndStatus("Healthcheck", LocalDateTime.now(), newState.toString()))
-
                     val notification = NotificationEntity( //TODO: each db insert requires TTS; unify
                         entFriendlyName = "połączenie",
                         entType = "connection",
                         content = if (newState) "OK" else "NOK",
                         timestamp = Instant.now().epochSecond
                     )
-
                     db.notificationEntityDao().insert(notification)
                     db.notificationEntityDao().keepLatest500()
                 }
-                handler.postDelayed({ checkServerHealth() }, checkInterval)
+
+
+                handler.postDelayed(checkRunnable, checkInterval)
             }
         }
     }
-
-    private fun handleServerDown(reason: String) {
-       // showAlertNotification("Serwer niedostępny: $reason")
-        // Exponential backoff
-        checkInterval = min(checkInterval * 2, maxInterval)
-        Log.d("ServerMonitor", "Błąd:${reason}, Następne sprawdzenie za: ${checkInterval / 1000}s")
-    }
-
-//    private fun showAlertNotification(message: String) {
-//        val intent = Intent(this, NotificationForegroundService::class.java).apply {
-//            putExtra("entFriendlyName", "połączenie")
-//            putExtra("entType", "healthcheck")
-//            putExtra("notificationContent", "niedostępne")
-//            putExtra("notificationTimestamp", Instant.now().epochSecond)
-//        }
-//        startForegroundService(intent)
-//    }
 
     override fun onDestroy() {
         super.onDestroy()

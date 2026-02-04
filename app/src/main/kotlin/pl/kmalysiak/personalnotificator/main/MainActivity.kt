@@ -22,6 +22,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
+import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.HeartBeatMonitor
 import pl.kmalysiak.personalnotificator.NotificationForegroundService
 import pl.kmalysiak.personalnotificator.config.ConfigLoader
@@ -149,7 +150,7 @@ class MainActivity : ComponentActivity() {
                 EventBus.getDefault().postSticky(
                     PermEvent(
                         permission.second,
-                        LocalDateTime.now(),
+                        DateTimeUtil.nowToWarsawDt(),
                         permGranted
                     )
                 )

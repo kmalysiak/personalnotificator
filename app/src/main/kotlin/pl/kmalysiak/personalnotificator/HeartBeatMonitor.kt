@@ -25,13 +25,14 @@ import java.io.IOException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.Date
 import kotlin.math.min
 
 class HeartBeatMonitor : Service() {
     private val handler = Handler(Looper.getMainLooper())
-    private var checkInterval = 1200_000L // 1 min
-    private val normalInterval = 120_000L
-    private val maxInterval = 300_000L // max 5 min
+    private var checkInterval = 120000L // 2 min
+    private val normalInterval = 120000L
+    private val maxInterval = 300000L // max 5 min
     private val client = OkHttpClient()
     private lateinit var db: NotificatorDatabase
     private var newState : Boolean = true;
@@ -44,10 +45,11 @@ class HeartBeatMonitor : Service() {
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(1, createNotification())
+        startForeground(2, createNotification())
         handler.post(checkRunnable)
         ConfigLoader.init(this)
         db = NotificatorDatabase.getDatabase(applicationContext)
+
         return START_STICKY
     }
 
@@ -64,25 +66,23 @@ class HeartBeatMonitor : Service() {
                 val request = Request.Builder()
                     .url(ConfigLoader.getConfig().apiUrl + "api/heartbeat")
                     .build()
-                val response = client.newCall(request).execute()
 
-                if (response.isSuccessful) {
-                    checkInterval = normalInterval
-                    Log.d("ServerMonitor", "OK. Następne sprawdzenie za: ${checkInterval / 1000}s")
-                    newState = true;
-                } else {
-                    handleServerDown("Błąd: ${response.code}")
-                    newState = false;
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        checkInterval = normalInterval
+                        Log.d("ServerMonitor", "OK. Następne sprawdzenie za: ${checkInterval / 1000}s")
+                        newState = true;
+                    } else {
+                        handleServerDown("Błąd: ${response.code}")
+                        newState = false;
+                    }
                 }
             } catch (e: IOException) {
                 handleServerDown("Brak połączenia: ${e.message}")
                 newState = false;
             } finally {
                 val now =  Instant.now()
-                EventBus.getDefault().post(HeartbeatEvent(
-                    now //TODO: unify time Zone across app
-                        .atZone(ZoneId.of("Europe/Warsaw"))
-                        .toLocalDateTime(), newState.toString()))
+                EventBus.getDefault().post(HeartbeatEvent(DateTimeUtil.nowToWarsawDt(), newState.toString()))
                 val stateChanged = HeartbeatDataUtil.get().updateHeartbeatState(now, if (newState) "OK" else "NOK")
 
                 if (stateChanged) {

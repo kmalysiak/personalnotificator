@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
@@ -23,11 +24,7 @@ import pl.kmalysiak.personalnotificator.model.event.PermEvent
 import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
-
-import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneId
-import kotlin.collections.map
 
 //
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -81,7 +78,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val fl = daos.map { entity ->
                 Triple(
                     entity.entFriendlyName,
-                    toLocalDateTime(entity.timestamp),
+                    DateTimeUtil.toWarsawDt(entity.timestamp),
                     entity.content
                 )
             }
@@ -96,9 +93,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun CoroutineScope.filterLastEvents(entities: List<NotificationEntity>): Triple<LocalDateTime, LocalDateTime, LocalDateTime> {
         val sorted = entities.sortedByDescending { it.timestamp }
         return Triple(
-            toLocalDateTime(sorted.firstOrNull { it.entType == "entry" && "otwarta".contains(it.content) }?.timestamp ?: -1),
-            toLocalDateTime(sorted.firstOrNull { it.entType == "entry" && "zamknięta".contains(it.content) }?.timestamp ?: -1),
-            toLocalDateTime(sorted.firstOrNull { it.entType == "move" }?.timestamp ?: -1)
+            DateTimeUtil.toWarsawDt(sorted.firstOrNull { it.entType == "entry" && "otwarta".contains(it.content) }?.timestamp ?: -1),
+            DateTimeUtil.toWarsawDt(sorted.firstOrNull { it.entType == "entry" && "zamknięta".contains(it.content) }?.timestamp ?: -1),
+            DateTimeUtil.toWarsawDt(sorted.firstOrNull { it.entType == "move" }?.timestamp ?: -1)
         )
     }
 
@@ -117,20 +114,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onDateTimeEvent(event: EventWithDateTimeAndStatus) {
         viewModelScope.launch(Dispatchers.IO) {
-            val fl = dao.getAll().map { entity ->
+            val entities = dao.getAll() //TODO:optimize me update only necessary, not whole
+            val fl = entities.map { entity ->
                 Triple(
                     entity.entFriendlyName,
-                    toLocalDateTime(entity.timestamp),
+                    DateTimeUtil.toWarsawDt(entity.timestamp),
                     entity.content
                 )
             }
             _tableData.value = fl
-            _lastRefreshed.value =  Instant.now()
-                .atZone(ZoneId.of("Europe/Warsaw"))
-                .toLocalDateTime()
+            _lastRefreshed.value = DateTimeUtil.nowToWarsawDt()
 
             val prefs = PreferencesDataUtil.get()
-            prefs.updatePreferences(fl.map { e -> e.first })
+            prefs.updatePreferences(entities.map { e -> e.entType })
 
         }
     }
@@ -154,7 +150,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun toLocalDateTime(timestamp: Long): LocalDateTime = if(timestamp == -1L) LocalDateTime.MIN else Instant.ofEpochSecond(timestamp).atZone(ZoneId.of("Europe/Warsaw")).toLocalDateTime()
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onPermEvent(event: PermEvent) {

@@ -87,10 +87,7 @@ class NotificationForegroundService : Service() {
             } else {
                 Log.i("TTS", "TTS dla powiadomienia:${notification.entFriendlyName} jest wyłączone w preferencjach")
             }
-            val dateTime = Instant.ofEpochSecond(notification.timestamp)
-                .atZone(ZoneId.of("Europe/Warsaw"))
-                .toLocalDateTime()
-            EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", dateTime, text))
+            EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", DateTimeUtil.toWarsawDt(notification.timestamp), text))
         }
 
         return START_NOT_STICKY

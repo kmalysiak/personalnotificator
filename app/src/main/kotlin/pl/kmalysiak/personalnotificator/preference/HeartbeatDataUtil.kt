@@ -5,6 +5,9 @@ import androidx.core.content.edit
 import java.time.Instant
 
 
+private const val LAST_CHECK_INSTANT = "last_check_instant"
+private const val LAST_CHECK_STATUS = "last_check_status"
+
 class HeartbeatDataUtil private constructor(context: Context) {
 
     private val prefs =
@@ -31,12 +34,12 @@ class HeartbeatDataUtil private constructor(context: Context) {
     }
 
     fun updateHeartbeatState(checked: Instant, status: String): Boolean {
-        val lastChecked = Instant.ofEpochSecond(get().prefs.getLong("last_check_instant", 0))
-        val lastStatus = get().prefs.getString("last_check_state", "OK")
+        val lastChecked = Instant.ofEpochSecond(get().prefs.getLong(LAST_CHECK_INSTANT, 0))
+        val lastStatus = get().prefs.getString(LAST_CHECK_STATUS, "OK")
 
         get().prefs.edit() {
-            putLong("last_check_instant", checked.toEpochMilli())
-            putString("last_check_status", status)
+            putLong(LAST_CHECK_INSTANT, checked.toEpochMilli())
+            putString(LAST_CHECK_STATUS, status)
         }
 
         return !lastStatus.equals(status)

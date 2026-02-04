@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator;
+package pl.kmalysiak.personalnotificator
 
 import android.Manifest
 import android.app.Notification
@@ -25,16 +25,14 @@ import pl.kmalysiak.personalnotificator.preference.HeartbeatDataUtil
 import java.io.IOException
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneId
-import java.util.Date
-import kotlin.math.min
+
 
 class HeartBeatMonitor : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val checkInterval = 120_000L // 2 min
     private val client = OkHttpClient()
     private lateinit var db: NotificatorDatabase
-    private var newState: Boolean = true;
+    private var newState: Boolean = true
     private val checkRunnable = object : Runnable {
         override fun run() {
             checkServerHealth()
@@ -70,15 +68,15 @@ class HeartBeatMonitor : Service() {
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
                         Log.d("ServerMonitor", "OK. Następne sprawdzenie za: ${checkInterval / 1000}s")
-                        newState = true;
+                        newState = true
                     } else {
                         Log.d("ServerMonitor", "Błąd:${response.code}, Następne sprawdzenie za: ${checkInterval / 1000}s")
-                        newState = false;
+                        newState = false
                     }
                 }
             } catch (e: IOException) {
                 Log.d("ServerMonitor", "Błąd:${e.message}, Następne sprawdzenie za: ${checkInterval / 1000}s")
-                newState = false;
+                newState = false
             } finally {
                 val now = Instant.now()
                 EventBus.getDefault().post(HeartbeatEvent(DateTimeUtil.toWarsawDt(now), newState.toString()))

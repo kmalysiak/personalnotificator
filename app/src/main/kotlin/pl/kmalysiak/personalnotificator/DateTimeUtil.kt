@@ -28,5 +28,9 @@ class DateTimeUtil {
                 .atZone(ZoneId.of("Europe/Warsaw"))
                 .toLocalDateTime()
         }
+
+        fun nowUtc(): Long {
+            return Instant.now().epochSecond
+        }
     }
 }

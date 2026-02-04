@@ -18,7 +18,6 @@ import okhttp3.Request
 import org.greenrobot.eventbus.EventBus
 import pl.kmalysiak.personalnotificator.config.ConfigLoader
 import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
-import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.model.event.HeartbeatEvent
 import pl.kmalysiak.personalnotificator.preference.HeartbeatDataUtil
@@ -41,6 +40,7 @@ class HeartBeatMonitor : Service() {
     private val serviceScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO
     )
+
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(2, createNotification())
@@ -59,7 +59,7 @@ class HeartBeatMonitor : Service() {
     }
 
     private fun checkServerHealth() {
-       serviceScope.launch {
+        serviceScope.launch {
             try {
                 val request = Request.Builder()
                     .url(ConfigLoader.getConfig().apiUrl + "api/heartbeat")
@@ -84,17 +84,18 @@ class HeartBeatMonitor : Service() {
 
                 if (stateChanged) {
                     EventBus.getDefault().post(EventWithDateTimeAndStatus("Healthcheck", LocalDateTime.now(), newState.toString()))
-                    val notification = NotificationEntity( //TODO: each db insert requires TTS; unify
-                        entFriendlyName = "połączenie",
-                        entType = "connection",
-                        content = if (newState) "OK" else "NOK",
-                        timestamp = Instant.now().epochSecond
-                    )
-                    db.notificationEntityDao().insert(notification)
-                    db.notificationEntityDao().keepLatest500()
+
+
+                    val intent = Intent(this@HeartBeatMonitor, NotificationForegroundService::class.java).apply {
+                        putExtra("source", "onMessageReceived")
+                        putExtra("entFriendlyName", "połączenie")
+                        putExtra("entType", "połączenie")
+                        putExtra("notificationContent", if (newState) "ustanowione" else "utracone")
+                        putExtra("notificationTimestamp", DateTimeUtil.nowUtc())
+                    }
+                    startForegroundService(intent)
+
                 }
-
-
                 handler.postDelayed(checkRunnable, checkInterval)
             }
         }

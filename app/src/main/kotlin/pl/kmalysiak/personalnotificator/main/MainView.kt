@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,6 +63,7 @@ import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import kotlin.coroutines.cancellation.CancellationException
 
 val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -314,11 +314,24 @@ fun TabEvents(
     tableData: List<EventViewDto>,
     onDbClear: () -> Unit
 ) {
-    LastEventDateTime("Last  opened:", lastGateOpened)
-    LastEventDateTime("Last  closed:", lastGateClosed)
-    LastEventDateTime("Last move:", lastMovement)
-    LastEventDateTime("Last refreshed:", lastRefreshed)
-    LastEventDateTime("Last heartbeat:", lastHeartbeat)
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ReadOnlyField(dt = lastGateOpened, label = "Last  opened", modifier = Modifier.weight(1f))
+        ReadOnlyField(dt = lastGateClosed, label = "Last  closed", modifier = Modifier.weight(1f))
+    }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ReadOnlyField(dt = lastMovement, label = "Last  move", modifier = Modifier.weight(1f))
+        ReadOnlyField(dt = lastRefreshed, label = "Last  refreshed", modifier = Modifier.weight(1f))
+    }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ReadOnlyField(dt = lastHeartbeat, label = "Last  heartbeat", modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f))
+    }
+
+//    LastEventDateTime("Last  opened:", lastGateOpened)
+//    LastEventDateTime("Last  closed:", lastGateClosed)
+//    LastEventDateTime("Last move:", lastMovement)
+//    LastEventDateTime("Last refreshed:", lastRefreshed)
+//    LastEventDateTime("Last heartbeat:", lastHeartbeat)
     Text("Events", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
 
     Row(
@@ -392,7 +405,7 @@ fun TabEvents(
                             .weight(1f)
                             .height(1.5.dp)
                             .align(Alignment.CenterVertically)
-                            .background( MaterialTheme.colorScheme.primary)
+                            .background(MaterialTheme.colorScheme.primary)
                     )
 
                 }
@@ -402,21 +415,21 @@ fun TabEvents(
 }
 
 @Composable
-private fun LastEventDateTime(text: String, lastRefreshed: LocalDateTime) {
-    Row(
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween, // Space between the Switch and Text
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = text, style = MaterialTheme.typography.bodyLarge)
-        Text(
-            if (lastRefreshed == LocalDateTime.MIN) "-" else dateFormatter.format(lastRefreshed),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-    }
+fun ReadOnlyField(
+    dt: LocalDateTime,
+    label: String,
+    modifier: Modifier = Modifier,
+    weight: Float? = null
+) {
+    OutlinedTextField(
+        value = if (dt == LocalDateTime.MIN) "-" else dateFormatter.format(dt),
+        onValueChange = {},
+        label = { Text(label)},
+        readOnly = true,
+        modifier = modifier,
+    )
 }
+
 
 @Composable
 fun LongPressButton(

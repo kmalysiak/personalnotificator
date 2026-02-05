@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
@@ -309,10 +311,9 @@ fun TabEvents(
     lastMovement: LocalDateTime,
     lastRefreshed: LocalDateTime,
     lastHeartbeat: LocalDateTime,
-    tableData: List<Triple<String, LocalDateTime, String>>,
+    tableData: List<EventViewDto>,
     onDbClear: () -> Unit
 ) {
-
     LastEventDateTime("Last  opened:", lastGateOpened)
     LastEventDateTime("Last  closed:", lastGateClosed)
     LastEventDateTime("Last move:", lastMovement)
@@ -344,7 +345,9 @@ fun TabEvents(
             onConfirmed = {
                 onDbClear()
             },
-            modifier = Modifier .weight(1f).height(48.dp),
+            modifier = Modifier
+                .weight(1f)
+                .height(48.dp),
             holdDuration = 2000L
         )
 
@@ -352,7 +355,7 @@ fun TabEvents(
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
-        items(tableData) { (event, dateTime, desc) ->
+        items(tableData) { (event, dateTime, desc, isFirstAtDay) ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -362,8 +365,8 @@ fun TabEvents(
                     Text(text = event)
                 }
 
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text(text = dateFormatter.format(dateTime))
+                Box(modifier = Modifier.weight(0.6f), contentAlignment = Alignment.Center) {
+                    Text(text = DateTimeUtil.dateFormatterHrMinSec.format(dateTime))
                     dateTime
                 }
 
@@ -371,12 +374,35 @@ fun TabEvents(
                     Text(text = desc)
                 }
             }
+            if (isFirstAtDay) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp, horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = DateTimeUtil.dateFormatter.format(dateTime.plusDays(1)),
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(1.5.dp)
+                            .align(Alignment.CenterVertically)
+                            .background( MaterialTheme.colorScheme.primary)
+                    )
+
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun LastEventDateTime(text:String, lastRefreshed: LocalDateTime) {
+private fun LastEventDateTime(text: String, lastRefreshed: LocalDateTime) {
     Row(
         modifier = Modifier
             .padding(vertical = 8.dp)

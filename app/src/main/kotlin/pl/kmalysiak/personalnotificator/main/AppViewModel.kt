@@ -29,12 +29,12 @@ import java.time.LocalDateTime
 //
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _token = MutableStateFlow("Token unknown")
-    private val _tableData = MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
+    private val _tableData = MutableStateFlow<List<EventViewDto>>(emptyList())
 
 
     private val _permissionData = MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
     internal val token: StateFlow<String> get() = _token
-    internal val tableData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _tableData
+    internal val tableData: StateFlow<List<EventViewDto>> = _tableData
     internal val permissionData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _permissionData
     private val _lastGateOpened = MutableStateFlow(LocalDateTime.of(2025, 1, 1, 1, 2, 3))
     internal val lastGateOpened: StateFlow<LocalDateTime> get() = _lastGateOpened
@@ -75,13 +75,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch(Dispatchers.IO) {
             val daos = dao.getAll()
-            val fl = daos.map { entity ->
-                Triple(
-                    entity.entFriendlyName,
-                    DateTimeUtil.toWarsawDt(entity.timestamp),
-                    entity.content
-                )
-            }
+            val fl =entitiesToEventViews(daos)
             _tableData.value = fl
             val lastEvents = filterLastEvents(daos)
             _lastGateOpened.value = lastEvents.first
@@ -115,13 +109,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun onDateTimeEvent(event: EventWithDateTimeAndStatus) {
         viewModelScope.launch(Dispatchers.IO) {
             val entities = dao.getAll() //TODO:optimize me update only necessary, not whole
-            val fl = entities.map { entity ->
-                Triple(
-                    entity.entFriendlyName,
-                    DateTimeUtil.toWarsawDt(entity.timestamp),
-                    entity.content
-                )
-            }
+            val daos = dao.getAll()
+            val fl = entitiesToEventViews(daos)
             _tableData.value = fl
             _lastRefreshed.value = DateTimeUtil.nowToWarsawDt()
 
@@ -129,6 +118,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             prefs.updatePreferences(entities.map { e -> e.entType })
 
         }
+    }
+
+    private fun entitiesToEventViews(daos: List<NotificationEntity>): List<EventViewDto> = daos.mapIndexed { idx, entity ->
+
+        val nextDt = daos.getOrNull(idx + 1)
+        val isLastAtDay =
+            nextDt != null && !DateTimeUtil.areTheSameDay(entity.timestamp, nextDt.timestamp)
+
+        EventViewDto(
+            entity.entFriendlyName,
+            DateTimeUtil.toWarsawDt(entity.timestamp),
+            entity.content,
+            isLastAtDay
+        )
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

@@ -15,6 +15,7 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,15 +26,20 @@ import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 import java.io.File
+import javax.inject.Inject
 import java.io.IOException
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneId
 import java.util.LinkedList
 import java.util.Locale
 import java.util.Queue
 
+@AndroidEntryPoint
 class NotificationForegroundService : Service() {
+
+    @Inject lateinit var notificationHandler: NotificationHandler
+    @Inject lateinit var prefsDataUtil: PreferencesDataUtil
+
     private var tts: TextToSpeech? = null
     private var mediaPlayer: MediaPlayer? = null
     private val queue: Queue<String> = LinkedList()
@@ -81,7 +87,7 @@ class NotificationForegroundService : Service() {
 
             val text = notification.entFriendlyName + ", " + notification.content
 
-            if (PreferencesDataUtil.get().getByName(notification.entType)) {
+            if (prefsDataUtil.getByName(notification.entType)) {
                 queue.offer(text)
                 processQueue()
             } else {
@@ -179,8 +185,7 @@ class NotificationForegroundService : Service() {
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     private fun createNotification(): Notification {
-        ChannelCreator.createNotificationTtsChannel(this)
-        return NotificationHandler.getNotificationWithForTts("TTS", this)
+        return notificationHandler.getNotificationForTtsStart("TTS")
     }
 
     override fun onDestroy() {

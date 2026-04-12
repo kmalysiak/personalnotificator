@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -59,11 +59,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
-import pl.kmalysiak.personalnotificator.auth.BackendAuthService
-import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import kotlin.coroutines.cancellation.CancellationException
 
 val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -81,7 +78,6 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     val lastHeartbeat by viewModel.lastHeartbeat.collectAsState()
     val username by viewModel.username
     val password by viewModel.password
-    val backendAuthService = BackendAuthService()
 
     LaunchedEffect(Unit) {
         viewModel.loadCredentials(context)
@@ -125,12 +121,12 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                         }
                     }
 
-                    1 -> TabSettings(token, permissionData)
+                    1 -> TabSettings(token, permissionData, viewModel)
                     2 -> TabCredentials(
                         username, password,
                     ) { inputUser, inputPass ->
                         scope.launch {
-                            regResult = backendAuthService.authenticateAndSendCredHomeAsync(context)
+                            regResult = viewModel.authenticate(context)
                         }
 
                         regResult?.let {
@@ -189,7 +185,7 @@ fun TabCredentials(
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = Icons.Filled.Menu, contentDescription = null)
+                    Icon(imageVector = Icons.Filled.Lock, contentDescription = null)
                 }
             },
             modifier = Modifier.fillMaxWidth()
@@ -211,11 +207,12 @@ fun TabCredentials(
 @Composable
 fun TabSettings(
     token: String,
-    permissionData: List<Triple<String, LocalDateTime, String>>
+    permissionData: List<Triple<String, LocalDateTime, String>>,
+    viewModel: AppViewModel
 ) {
 
     val items = remember {
-        mutableStateOf(PreferencesDataUtil.get().getForDisplay())
+        mutableStateOf(viewModel.getPrefsForDisplay())
     }
 
     Column {
@@ -232,8 +229,8 @@ fun TabSettings(
                 Switch(
                     checked = item.enabled,
                     onCheckedChange = { checked ->
-                        PreferencesDataUtil.get().setPreference(item.name, checked)
-                        items.value = PreferencesDataUtil.get().getForDisplay()
+                        viewModel.setPreference(item.name, checked)
+                        items.value = viewModel.getPrefsForDisplay()
                     }
                 )
                 Spacer(modifier = Modifier.width(16.dp))

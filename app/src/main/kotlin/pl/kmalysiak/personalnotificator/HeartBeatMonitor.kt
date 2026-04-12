@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.greenrobot.eventbus.EventBus
+import dagger.hilt.android.AndroidEntryPoint
 import pl.kmalysiak.personalnotificator.config.ConfigLoader
 import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
@@ -24,9 +25,14 @@ import pl.kmalysiak.personalnotificator.preference.HeartbeatDataUtil
 import java.io.IOException
 import java.time.Instant
 import java.time.LocalDateTime
+import javax.inject.Inject
 
-
+@AndroidEntryPoint
 class HeartBeatMonitor : Service() {
+
+    @Inject lateinit var heartbeatDataUtil: HeartbeatDataUtil
+    @Inject lateinit var notificationHandler: NotificationHandler
+
     private val handler = Handler(Looper.getMainLooper())
     private val checkInterval = 120_000L // 2 min
     private val client = OkHttpClient()
@@ -54,15 +60,14 @@ class HeartBeatMonitor : Service() {
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     private fun createNotification(): Notification {
-        ChannelCreator.createNotificationTtsChannel(this)
-        return NotificationHandler.getNotificationWithForHealthCheck("HC", this)
+        return notificationHandler.getNotificationForRestHealthCheckStart("HC")
     }
 
     private fun checkServerHealth() {
         serviceScope.launch {
             try {
                 val request = Request.Builder()
-                    .url(ConfigLoader.getConfig().apiUrl + "api/heartbeat")
+                    .url("https://" + ConfigLoader.getConfig().apiUrl + "api/heartbeat")
                     .build()
 
                 client.newCall(request).execute().use { response ->
@@ -80,7 +85,7 @@ class HeartBeatMonitor : Service() {
             } finally {
                 val now = Instant.now()
                 EventBus.getDefault().post(HeartbeatEvent(DateTimeUtil.toWarsawDt(now), newState.toString()))
-                val stateChanged = HeartbeatDataUtil.get().updateHeartbeatState(now, if (newState) "OK" else "NOK")
+                val stateChanged = heartbeatDataUtil.updateHeartbeatState(now, if (newState) "OK" else "NOK")
 
                 if (stateChanged) {
                     EventBus.getDefault().post(EventWithDateTimeAndStatus("Healthcheck", LocalDateTime.now(), newState.toString()))

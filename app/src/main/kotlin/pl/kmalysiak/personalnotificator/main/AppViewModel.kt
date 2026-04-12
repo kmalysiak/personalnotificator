@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,9 +26,15 @@ import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 import java.time.LocalDateTime
+import javax.inject.Inject
 
-//
-class AppViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class AppViewModel @Inject constructor(
+    application: Application,
+    private val securePrefs: SecurePrefsService,
+    private val prefsDataUtil: PreferencesDataUtil,
+    private val backendAuthService: pl.kmalysiak.personalnotificator.auth.BackendAuthService
+) : AndroidViewModel(application) {
     private val _token = MutableStateFlow("Token unknown")
     private val _tableData = MutableStateFlow<List<EventViewDto>>(emptyList())
 
@@ -58,16 +65,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     fun loadCredentials(context: Context) {
-        val (user, pass) = SecurePrefsService.loadCredentials(context)
+        val (user, pass) = securePrefs.loadCredentials()
         username.value = user
         password.value = pass
     }
 
     fun saveCredentials(context: Context, user: String, pass: String) {
-        SecurePrefsService.saveCredentials(context, user, pass)
+        securePrefs.saveCredentials(user, pass)
         username.value = user
         password.value = pass
     }
+
+    suspend fun authenticate(context: Context) =
+        backendAuthService.authenticateAndSendCredHomeAsync(context)
 
 
     init {
@@ -114,8 +124,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _tableData.value = fl
             _lastRefreshed.value = DateTimeUtil.nowToWarsawDt()
 
-            val prefs = PreferencesDataUtil.get()
-            prefs.updatePreferences(entities.map { e -> e.entType })
+            prefsDataUtil.updatePreferences(entities.map { e -> e.entType })
 
         }
     }
@@ -140,6 +149,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _lastHeartBeat.value = event.timestamp
 
         }
+    }
+
+    fun getPrefsForDisplay() = prefsDataUtil.getForDisplay()
+
+    fun setPreference(name: String, enabled: Boolean) {
+        prefsDataUtil.setPreference(name, enabled)
     }
 
     fun clearDb() {

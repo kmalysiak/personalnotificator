@@ -5,34 +5,43 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme
 import androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object SecurePrefsService {
+@Singleton
+class SecurePrefsService @Inject constructor(@ApplicationContext context: Context) {
 
-    private const val PREF_NAME = "secret_prefs"
-    private const val MASTER_KEY_ALIAS = "master_key_alias"
+    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
+        PREF_NAME,
+        MASTER_KEY_ALIAS,
+        context,
+        PrefKeyEncryptionScheme.AES256_SIV,
+        PrefValueEncryptionScheme.AES256_GCM
+    )
 
-    fun saveCredentials(context: Context, username: String, password: String) {
-        getPrefs(context).edit().apply {
+    companion object {
+        private const val PREF_NAME = "secret_prefs"
+        private const val MASTER_KEY_ALIAS = "master_key_alias"
+    }
+
+    fun saveCredentials(username: String, password: String) {
+        prefs.edit().apply {
             putString("username", username)
             putString("password", password)
             apply()
         }
     }
 
-    fun loadCredentials(context: Context): Pair<String, String> {
-        val prefs = getPrefs(context)
-        return prefs.getString("username", "")!! to prefs.getString("password", "")!!
+    fun loadCredentials(): Pair<String, String> =
+        prefs.getString("username", "")!! to prefs.getString("password", "")!!
+
+    fun saveIdToken(idToken: String) {
+        prefs.edit().apply {
+            putString("idToken", idToken)
+            apply()
+        }
     }
 
-    private fun getPrefs(context: Context): SharedPreferences {
-        return EncryptedSharedPreferences.create(
-            PREF_NAME,
-            MASTER_KEY_ALIAS,
-            context,
-            PrefKeyEncryptionScheme.AES256_SIV,
-            PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
-
-
+    fun loadIdToken(): String = prefs.getString("idToken", "")!!
 }

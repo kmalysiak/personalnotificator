@@ -1,17 +1,24 @@
 package pl.kmalysiak.personalnotificator
 
 import android.app.Application
-import pl.kmalysiak.personalnotificator.preference.HeartbeatDataUtil
-import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
+import android.content.Intent
+import dagger.hilt.android.HiltAndroidApp
+import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
+import pl.kmalysiak.personalnotificator.ws.WebSocketService
+import javax.inject.Inject
 
+@HiltAndroidApp
 class App : Application() {
+
+    @Inject lateinit var securePrefs: SecurePrefsService
 
     override fun onCreate() {
         super.onCreate()
-        PreferencesDataUtil.init(this)
-        HeartbeatDataUtil.init(this)
+        tryStartWebSocketService()
     }
 
-    companion object {
+    private fun tryStartWebSocketService() {
+        val token = securePrefs.loadIdToken().ifEmpty { return }
+        startForegroundService(Intent(this, WebSocketService::class.java).putExtra("idToken", token))
     }
 }

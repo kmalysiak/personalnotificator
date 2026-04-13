@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
 import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.NotificationHandler
-import pl.kmalysiak.personalnotificator.config.ConfigLoader
+import pl.kmalysiak.personalnotificator.config.AppConfig
 import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
@@ -31,6 +31,7 @@ class WebSocketService : Service() {
     @Inject lateinit var securePrefs: SecurePrefsService
     @Inject lateinit var notificationHandler: NotificationHandler
     @Inject lateinit var dao: NotificationEntityDao
+    @Inject lateinit var appConfig: AppConfig
     private lateinit var wsManager: WebSocketManager
     private val NOTIF_ID = 4
     private val job = SupervisorJob()
@@ -44,7 +45,7 @@ class WebSocketService : Service() {
 
         wsManager = WebSocketManager(
             context = this,
-            serverUrl = "wss://" + ConfigLoader.getConfig().apiUrl + "ws/notifications",
+            serverUrl = "wss://" + appConfig.apiUrl + "ws/notifications",
             securePrefs = securePrefs,
             onMessage = { msg -> handlePushMessage(msg) },
             onStateChange = { state -> updateNotification(state) }

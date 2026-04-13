@@ -17,7 +17,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.greenrobot.eventbus.EventBus
 import dagger.hilt.android.AndroidEntryPoint
-import pl.kmalysiak.personalnotificator.config.ConfigLoader
+import pl.kmalysiak.personalnotificator.config.AppConfig
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.model.event.HeartbeatEvent
 import pl.kmalysiak.personalnotificator.preference.HeartbeatDataUtil
@@ -31,6 +31,7 @@ class HeartBeatMonitor : Service() {
 
     @Inject lateinit var heartbeatDataUtil: HeartbeatDataUtil
     @Inject lateinit var notificationHandler: NotificationHandler
+    @Inject lateinit var appConfig: AppConfig
 
     private val handler = Handler(Looper.getMainLooper())
     private val checkInterval = 120_000L // 2 min
@@ -49,7 +50,6 @@ class HeartBeatMonitor : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(2, createNotification())
         serviceScope.launch(Dispatchers.IO) {
-            ConfigLoader.init(this@HeartBeatMonitor)
             checkRunnable.run()
         }
         return START_STICKY
@@ -64,7 +64,7 @@ class HeartBeatMonitor : Service() {
         serviceScope.launch {
             try {
                 val request = Request.Builder()
-                    .url("https://" + ConfigLoader.getConfig().apiUrl + "api/heartbeat")
+                    .url("https://" + appConfig.apiUrl + "api/heartbeat")
                     .build()
 
                 client.newCall(request).execute().use { response ->

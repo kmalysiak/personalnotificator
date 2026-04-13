@@ -14,7 +14,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import pl.kmalysiak.personalnotificator.config.ConfigLoader
+import pl.kmalysiak.personalnotificator.config.AppConfig
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import pl.kmalysiak.personalnotificator.ws.WebSocketService
 import java.util.UUID
@@ -23,7 +23,8 @@ import javax.inject.Singleton
 
 @Singleton
 class BackendAuthService @Inject constructor(
-    private val securePrefs: SecurePrefsService
+    private val securePrefs: SecurePrefsService,
+    private val appConfig: AppConfig
 ) {
     private val firebaseAuth = FirebaseAuth.getInstance()
     private val client = OkHttpClient()
@@ -45,7 +46,7 @@ class BackendAuthService @Inject constructor(
             val jsonBody = Json.encodeToString(body)
 
             val request = Request.Builder()
-                .url("https://" + ConfigLoader.getConfig().apiUrl + "api/register")
+                .url("https://" + appConfig.apiUrl + "api/register")
                 .addHeader("Authorization", "Bearer $idToken")
                 .post(jsonBody.toRequestBody("application/json".toMediaType()))
                 .build()

@@ -26,7 +26,6 @@ import org.greenrobot.eventbus.EventBus
 import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.HeartBeatMonitor
 import pl.kmalysiak.personalnotificator.NotificationForegroundService
-import pl.kmalysiak.personalnotificator.config.ConfigLoader
 import pl.kmalysiak.personalnotificator.model.event.PermEvent
 import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import java.time.LocalDateTime
@@ -36,7 +35,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ConfigLoader.init(this)
 
         val that = this
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(

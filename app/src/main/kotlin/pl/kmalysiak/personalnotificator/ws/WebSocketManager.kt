@@ -36,10 +36,10 @@ class WebSocketManager(
         .retryOnConnectionFailure(false)      // custom retry handling
         .build()
 
-    private var webSocket: WebSocket? = null
+    @Volatile private var webSocket: WebSocket? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var reconnectJob: Job? = null
-    private var isRunning = false
+    @Volatile private var isRunning = false
     private var failureCount = 0
 
     // WakeLock — trzyma CPU aktywny przez połączenie
@@ -61,8 +61,11 @@ class WebSocketManager(
 
     //stared by websocket service
     fun start(idToken: String) {
+        if (isRunning) {
+            Log.w("WSManager", "start() called but already running — ignoring")
+            return
+        }
         isRunning = true
-       // TokenStore.save(idToken)
         securePrefs.saveIdToken(idToken)
         acquireWakeLock()
         connect(idToken)
@@ -79,6 +82,10 @@ class WebSocketManager(
     }
 
     private fun connect(token: String) {
+        // zamknij poprzednie połączenie zanim otworzysz nowe
+        webSocket?.close(1000, "Reconnecting")
+        webSocket = null
+
         onStateChange(State.CONNECTING)
         val request = Request.Builder()
             .url(serverUrl)

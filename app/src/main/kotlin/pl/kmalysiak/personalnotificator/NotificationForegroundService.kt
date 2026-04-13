@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
-import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
+import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
@@ -39,6 +39,7 @@ class NotificationForegroundService : Service() {
 
     @Inject lateinit var notificationHandler: NotificationHandler
     @Inject lateinit var prefsDataUtil: PreferencesDataUtil
+    @Inject lateinit var dao: NotificationEntityDao
 
     private var tts: TextToSpeech? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -46,7 +47,6 @@ class NotificationForegroundService : Service() {
     private var isPlaying = false
     private var ttsInitialized = false
     private lateinit var wavFile: File
-    private lateinit var db: NotificatorDatabase
 
     private val serviceScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO
@@ -57,7 +57,6 @@ class NotificationForegroundService : Service() {
         Log.i(TAG, "NotificationForegroundService, onCreate")
         super.onCreate()
         startForeground(1, createNotification())
-        db = NotificatorDatabase.getDatabase(applicationContext)
         initTTS()
     }
 
@@ -71,19 +70,21 @@ class NotificationForegroundService : Service() {
                     entFriendlyName = "usługa powiadomień",
                     entType = "usługa",
                     content = "uruchomiona",
-                    timestamp = Instant.now().epochSecond
+                    timestamp = Instant.now().epochSecond,
+                    timestampReceived = Instant.now().epochSecond
                 )
             } else {
                 NotificationEntity(
                     entFriendlyName = int.getStringExtra("entFriendlyName") ?: "nieznany",
                     entType = int.getStringExtra("entType") ?: "nieznany",
                     content = int.getStringExtra("notificationContent") ?: "",
-                    timestamp = int.getLongExtra("notificationTimestamp", Instant.now().epochSecond)
+                    timestamp = int.getLongExtra("notificationTimestamp", Instant.now().epochSecond),
+                    timestampReceived = Instant.now().epochSecond
                 )
 
             }
-            db.notificationEntityDao().insert(notification)
-            db.notificationEntityDao().keepLatest500()
+            dao.insert(notification)
+            dao.keepLatest500()
 
             val text = notification.entFriendlyName + ", " + notification.content
 

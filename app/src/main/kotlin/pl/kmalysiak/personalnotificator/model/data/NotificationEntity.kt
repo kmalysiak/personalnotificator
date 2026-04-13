@@ -9,5 +9,6 @@ data class NotificationEntity(
     val entFriendlyName: String,
     val entType:String,
     val content: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val timestampReceived: Long
 )

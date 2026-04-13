@@ -11,10 +11,10 @@ interface NotificationEntityDao {
     suspend fun insert(note: NotificationEntity)
 
     @Query("SELECT * FROM notification ORDER BY timestamp DESC")
-    fun getAll(): List<NotificationEntity>
+    suspend fun getAll(): List<NotificationEntity>
 
-    @Query("DELETE  FROM notification")
-    public fun deleteALl()
+    @Query("DELETE FROM notification")
+    suspend fun deleteALl()
 
     @Query("""
 DELETE FROM notification
@@ -24,5 +24,5 @@ WHERE id NOT IN (
     LIMIT 500
 )
 """)
-    fun keepLatest500()
+    suspend fun keepLatest500()
 }

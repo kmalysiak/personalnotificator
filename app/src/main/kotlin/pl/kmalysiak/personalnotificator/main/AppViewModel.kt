@@ -17,7 +17,7 @@ import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 import pl.kmalysiak.personalnotificator.DateTimeUtil
-import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
+import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.model.event.HeartbeatEvent
@@ -33,7 +33,8 @@ class AppViewModel @Inject constructor(
     application: Application,
     private val securePrefs: SecurePrefsService,
     private val prefsDataUtil: PreferencesDataUtil,
-    private val backendAuthService: pl.kmalysiak.personalnotificator.auth.BackendAuthService
+    private val backendAuthService: pl.kmalysiak.personalnotificator.auth.BackendAuthService,
+    private val dao: NotificationEntityDao
 ) : AndroidViewModel(application) {
     private val _token = MutableStateFlow("Token unknown")
     private val _tableData = MutableStateFlow<List<EventViewDto>>(emptyList())
@@ -54,9 +55,6 @@ class AppViewModel @Inject constructor(
 
     private val _lastHeartBeat = MutableStateFlow(LocalDateTime.of(2025, 1, 3, 3, 4, 5))
     internal val lastHeartbeat: StateFlow<LocalDateTime> get() = _lastHeartBeat
-
-    private val db = NotificatorDatabase.getDatabase(application)
-    private val dao = db.notificationEntityDao()
 
     var username = mutableStateOf("")
         private set

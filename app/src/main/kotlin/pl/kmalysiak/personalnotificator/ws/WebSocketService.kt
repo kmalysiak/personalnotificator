@@ -2,8 +2,6 @@ package pl.kmalysiak.personalnotificator.ws
 
 import android.Manifest
 import android.app.AlarmManager
-import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -11,12 +9,20 @@ import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RequiresPermission
-import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import org.greenrobot.eventbus.EventBus
+import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.NotificationHandler
-import pl.kmalysiak.personalnotificator.R
 import pl.kmalysiak.personalnotificator.config.ConfigLoader
+import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
+import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
+import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
+import java.time.Instant
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -24,10 +30,12 @@ class WebSocketService : Service() {
 
     @Inject lateinit var securePrefs: SecurePrefsService
     @Inject lateinit var notificationHandler: NotificationHandler
-
+    @Inject lateinit var dao: NotificationEntityDao
     private lateinit var wsManager: WebSocketManager
     private val NOTIF_ID = 4
-    private val CHANNEL_ID = "ws_persistent"
+    private val job = SupervisorJob()
+    private val serviceScope = CoroutineScope(job + Dispatchers.IO)
+
 
 
     override fun onCreate() {
@@ -65,6 +73,7 @@ class WebSocketService : Service() {
 
     @RequiresPermission(Manifest.permission.SCHEDULE_EXACT_ALARM)
     override fun onDestroy() {
+        job.cancel()
         wsManager.stop()
         // Ostatnia deska ratunku — zaplanuj restart przez AlarmManager
         scheduleRestart()
@@ -91,7 +100,18 @@ class WebSocketService : Service() {
 
     private fun handlePushMessage(msg: String) {
         Log.d("WSService", "Push: $msg")
-        // TODO: następny krok
+        val entity = NotificationEntity(
+            entFriendlyName = "ws_heartbeat",
+            entType = "ws_heartbeat",
+            content = "ws_heartbeat",
+            timestamp = Instant.now().epochSecond,
+            timestampReceived = Instant.now().epochSecond
+        )
+        serviceScope.launch {
+            dao.insert(entity)
+            dao.keepLatest500()
+            EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", DateTimeUtil.toWarsawDt(entity.timestamp), "ws_heartbeat"))
+        }
     }
 
     private fun updateNotification(state: WebSocketManager.State) {
@@ -105,24 +125,24 @@ class WebSocketService : Service() {
         manager.notify(NOTIF_ID, notificationHandler.getNotificationForWsStart(text))
     }
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Połączenie z serwerem",
-            NotificationManager.IMPORTANCE_LOW  // LOW = brak dźwięku, ale nie można ukryć (to ważne!)
-        ).apply {
-            setShowBadge(false)
-            lockscreenVisibility = Notification.VISIBILITY_SECRET
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
-    private fun buildNotification(status: String) = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("Personal Notificator")
-        .setContentText(status)
-        .setSmallIcon(R.drawable.ic_notification)
-        .setOngoing(true)
-        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-        .setSilent(true)
-        .build()
+//    private fun createNotificationChannel() {
+//        val channel = NotificationChannel(
+//            CHANNEL_ID,
+//            "Połączenie z serwerem",
+//            NotificationManager.IMPORTANCE_LOW  // LOW = brak dźwięku, ale nie można ukryć (to ważne!)
+//        ).apply {
+//            setShowBadge(false)
+//            lockscreenVisibility = Notification.VISIBILITY_SECRET
+//        }
+//        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+//    }
+//
+//    private fun buildNotification(status: String) = NotificationCompat.Builder(this, CHANNEL_ID)
+//        .setContentTitle("Personal Notificator")
+//        .setContentText(status)
+//        .setSmallIcon(R.drawable.ic_notification)
+//        .setOngoing(true)
+//        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+//        .setSilent(true)
+//        .build()
 }

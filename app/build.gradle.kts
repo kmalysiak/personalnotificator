@@ -86,4 +86,6 @@ dependencies {
     implementation(libs.androidx.security.crypto.v110alpha06)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    implementation(libs.slf4j.api)
+    implementation(libs.logback.android)
 }

@@ -76,11 +76,20 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     val lastMovement by viewModel.lastMovement.collectAsState()
     val lastRefreshed by viewModel.lastRefreshed.collectAsState()
     val lastHeartbeat by viewModel.lastHeartbeat.collectAsState()
+    val authResult by viewModel.authResult.collectAsState()
     val username by viewModel.username
     val password by viewModel.password
 
     LaunchedEffect(Unit) {
-        viewModel.loadCredentials(context)
+        viewModel.loadCredentials()
+    }
+
+    LaunchedEffect(authResult) {
+        if (authResult.isRegister) {
+            Toast.makeText(context, "Zalogowano", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Błąd: ${authResult.errorDesc}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     Box(
@@ -122,22 +131,10 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                     }
 
                     1 -> TabSettings(token, permissionData, viewModel)
-                    2 -> TabCredentials(
-                        username, password,
-                    ) { inputUser, inputPass ->
-                        scope.launch {
-                            regResult = viewModel.authenticate(context)
-                        }
-
-                        regResult?.let {
-                            if (it.isRegister) {
-                                Toast.makeText(context, "User logged in: $inputUser", Toast.LENGTH_SHORT).show()
-                                viewModel.saveCredentials(context, inputUser, inputPass)
-                            } else {
-                                Toast.makeText(context, "User not logged in: $inputUser: ${it.errorDesc}", Toast.LENGTH_SHORT).show()
-                                viewModel.saveCredentials(context, inputUser, inputPass)
-                            }
-                        }
+                    2 -> TabCredentials(username, password) {
+                        inputUser, inputPass ->
+                        viewModel.saveCredentials(inputUser, inputPass)
+                        viewModel.authenticate()
                     }
                 }
             }
@@ -365,7 +362,7 @@ fun TabEvents(
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
-        items(tableData) { (event, dateTime, desc, isFirstAtDay) ->
+        items(tableData) { (event, dateTime, desc, isFirstAtDay, received) ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -377,7 +374,6 @@ fun TabEvents(
 
                 Box(modifier = Modifier.weight(0.6f), contentAlignment = Alignment.Center) {
                     Text(text = DateTimeUtil.dateFormatterHrMinSec.format(dateTime))
-                    dateTime
                 }
 
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -421,7 +417,7 @@ fun ReadOnlyField(
     OutlinedTextField(
         value = if (dt == LocalDateTime.MIN) "-" else dateFormatter.format(dt),
         onValueChange = {},
-        label = { Text(label)},
+        label = { Text(label) },
         readOnly = true,
         modifier = modifier,
     )

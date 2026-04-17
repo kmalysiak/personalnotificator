@@ -61,32 +61,6 @@ class MainActivity : ComponentActivity() {
             MainView(viewModel = viewModel)
         }
 
-
-//        FirebaseMessaging.getInstance().subscribeToTopic("home_notifications")
-//            .addOnCompleteListener { task ->
-//                var msg = "Subscribed to home_notifications topic"
-//                if (!task.isSuccessful) {
-//                    msg = "Subscribe failed to home_notifications topic"
-//                    EventBus.getDefault().post(
-//                        EventWithDateTimeAndStatus(
-//                            "Home notification subscription",
-//                            LocalDateTime.now(),
-//                            "NOK"
-//                        )
-//                    )
-//                } else {
-//                    EventBus.getDefault().post(
-//                        EventWithDateTimeAndStatus(
-//                            "Home notification subscription",
-//                            LocalDateTime.now(),
-//                            "OK"
-//                        )
-//                    )
-//                }
-//                Log.d(ContentValues.TAG, msg)
-//            }
-
-
         FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Log.w(ContentValues.TAG, "Fetching FCM registration token failed", task.exception)

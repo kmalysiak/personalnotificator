@@ -1,10 +1,8 @@
 package pl.kmalysiak.personalnotificator.main
 
 import android.app.Application
-import android.content.ContentValues
-import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.mutableStateOf
+import org.slf4j.LoggerFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +15,8 @@ import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 import pl.kmalysiak.personalnotificator.DateTimeUtil
+import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
+import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
@@ -33,9 +33,10 @@ class AppViewModel @Inject constructor(
     application: Application,
     private val securePrefs: SecurePrefsService,
     private val prefsDataUtil: PreferencesDataUtil,
-    private val backendAuthService: pl.kmalysiak.personalnotificator.auth.BackendAuthService,
+    private val backendAuthService: BackendAuthService,
     private val dao: NotificationEntityDao
 ) : AndroidViewModel(application) {
+    private val log = LoggerFactory.getLogger(AppViewModel::class.java)
     private val _token = MutableStateFlow("Token unknown")
     private val _tableData = MutableStateFlow<List<EventViewDto>>(emptyList())
 
@@ -56,34 +57,39 @@ class AppViewModel @Inject constructor(
     private val _lastHeartBeat = MutableStateFlow(LocalDateTime.of(2025, 1, 3, 3, 4, 5))
     internal val lastHeartbeat: StateFlow<LocalDateTime> get() = _lastHeartBeat
 
+
+    internal val authResult: StateFlow<BackendAuthResult> get() = _authResult
+    private val _authResult = MutableStateFlow(BackendAuthResult(false, "none"))
+
+
     var username = mutableStateOf("")
         private set
 
     var password = mutableStateOf("")
         private set
 
-    fun loadCredentials(context: Context) {
+    fun loadCredentials() {
         val (user, pass) = securePrefs.loadCredentials()
         username.value = user
         password.value = pass
     }
 
-    fun saveCredentials(context: Context, user: String, pass: String) {
+    fun saveCredentials(user: String, pass: String) {
         securePrefs.saveCredentials(user, pass)
         username.value = user
         password.value = pass
     }
 
-    suspend fun authenticate(context: Context) =
-        backendAuthService.authenticateAndSendCredHomeAsync(context)
-
+    fun authenticate() {
+        viewModelScope.launch { _authResult.value = backendAuthService.authenticateAndSendCredHome() }
+    }
 
     init {
         EventBus.getDefault().register(this)
 
         viewModelScope.launch(Dispatchers.IO) {
             val daos = dao.getAll()
-            val fl =entitiesToEventViews(daos)
+            val fl = entitiesToEventViews(daos)
             _tableData.value = fl
             val lastEvents = filterLastEvents(daos)
             _lastGateOpened.value = lastEvents.first
@@ -110,7 +116,7 @@ class AppViewModel @Inject constructor(
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onTokenReceivedEvent(event: TokenEvent) {
         _token.value = event.token
-        Log.d(ContentValues.TAG, "Token received:${event.token}")
+        log.debug("Token received: {}", event.token)
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -137,8 +143,8 @@ class AppViewModel @Inject constructor(
             entity.entFriendlyName,
             DateTimeUtil.toWarsawDt(entity.timestamp),
             entity.content,
-            isLastAtDay
-        )
+            isLastAtDay,
+            DateTimeUtil.toWarsawDt(entity.timestampReceived))
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -171,7 +177,7 @@ class AppViewModel @Inject constructor(
     fun onPermEvent(event: PermEvent) {
         val newRow = Triple(event.type, event.dt, event.status)
         _permissionData.value = _permissionData.value + newRow
-        Log.d(ContentValues.TAG, "onPermEvent:${event}")
+        log.debug("onPermEvent: {}", event)
     }
 
 }

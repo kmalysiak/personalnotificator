@@ -1,10 +1,9 @@
 package pl.kmalysiak.personalnotificator
 
 import android.Manifest
-import android.content.ContentValues.TAG
 import android.content.Intent
-import android.util.Log
 import androidx.annotation.RequiresPermission
+import org.slf4j.LoggerFactory
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import org.greenrobot.eventbus.EventBus
@@ -21,19 +20,22 @@ import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 //https://firebase.google.com/docs/cloud-messaging/concept-options#setting-the-priority-of-a-message
 //https://developer.android.com/about/versions/oreo/background
 class AppFirebaseMessagingService : FirebaseMessagingService() {
+
+    private val log = LoggerFactory.getLogger(AppFirebaseMessagingService::class.java)
+
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "CREATED")
+        log.debug("CREATED")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "DESTROYED")
+        log.debug("DESTROYED")
     }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "Refreshed token: $token")
+        log.debug("Refreshed token: {}", token)
 //        val sharedPreferences = getSharedPreferences("AppPrefs", MODE_PRIVATE)
 //        sharedPreferences.edit { putString("FCM_TOKEN", token) }
         EventBus.getDefault().post(TokenEvent(token))
@@ -41,7 +43,7 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        Log.i(TAG, "Msg received")
+        log.info("Msg received")
         if (remoteMessage.data.isEmpty()) return
 
         val entFriendlyName = remoteMessage.data["entityFriendlyName"] ?: return
@@ -50,7 +52,7 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
         val timestamp =  remoteMessage.data["timestamp"]?.toLongOrNull() ?: return
 
 
-        Log.i(TAG, "Starting TTS for msg type:$entFriendlyName $msg")
+        log.info("Starting TTS for msg type: {} {}", entFriendlyName, msg)
         val intent = Intent(this, NotificationForegroundService::class.java).apply {
             putExtra("source", "onMessageReceived")
             putExtra("entFriendlyName", entFriendlyName)

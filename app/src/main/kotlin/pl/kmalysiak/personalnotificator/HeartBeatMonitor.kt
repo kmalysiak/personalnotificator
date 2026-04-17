@@ -7,8 +7,8 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.Log
 import androidx.annotation.RequiresPermission
+import org.slf4j.LoggerFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,6 +28,8 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class HeartBeatMonitor : Service() {
+
+    private val log = LoggerFactory.getLogger(HeartBeatMonitor::class.java)
 
     @Inject lateinit var heartbeatDataUtil: HeartbeatDataUtil
     @Inject lateinit var notificationHandler: NotificationHandler
@@ -69,15 +71,15 @@ class HeartBeatMonitor : Service() {
 
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        Log.d("ServerMonitor", "OK. Następne sprawdzenie za: ${checkInterval / 1000}s")
+                        log.debug("OK. Następne sprawdzenie za: {}s", checkInterval / 1000)
                         newState = true
                     } else {
-                        Log.d("ServerMonitor", "Błąd:${response.code}, Następne sprawdzenie za: ${checkInterval / 1000}s")
+                        log.debug("Błąd: {}, Następne sprawdzenie za: {}s", response.code, checkInterval / 1000)
                         newState = false
                     }
                 }
             } catch (e: IOException) {
-                Log.d("ServerMonitor", "Błąd:${e.message}, Następne sprawdzenie za: ${checkInterval / 1000}s")
+                log.debug("Błąd: {}, Następne sprawdzenie za: {}s", e.message, checkInterval / 1000)
                 newState = false
             } finally {
                 val now = Instant.now()

@@ -1,42 +1,48 @@
 package pl.kmalysiak.personalnotificator.ws
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.SystemClock
-import android.util.Log
 import androidx.annotation.RequiresPermission
+import org.slf4j.LoggerFactory
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import org.greenrobot.eventbus.EventBus
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import pl.kmalysiak.personalnotificator.DateTimeUtil
+import pl.kmalysiak.personalnotificator.NotificationForegroundService
 import pl.kmalysiak.personalnotificator.NotificationHandler
+import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.config.AppConfig
-import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
-import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
-import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import java.time.Instant
 import javax.inject.Inject
 
 @AndroidEntryPoint
+@SuppressLint("MissingPermission")
 class WebSocketService : Service() {
+
+    private val log = LoggerFactory.getLogger(WebSocketService::class.java)
 
     @Inject lateinit var securePrefs: SecurePrefsService
     @Inject lateinit var notificationHandler: NotificationHandler
-    @Inject lateinit var dao: NotificationEntityDao
     @Inject lateinit var appConfig: AppConfig
+    @Inject lateinit var backendAuthService: BackendAuthService
+
     private lateinit var wsManager: WebSocketManager
     private val NOTIF_ID = 4
     private val job = SupervisorJob()
     private val serviceScope = CoroutineScope(job + Dispatchers.IO)
-
 
 
     override fun onCreate() {
@@ -54,14 +60,15 @@ class WebSocketService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // START_STICKY: Android restartuje service, intent może być null
-        val token = intent?.getStringExtra("idToken") ?: securePrefs.loadIdToken()
-        wsManager.start(token)
+        serviceScope.launch {
+            backendAuthService.authenticateAndSendCredHome()
+            wsManager.start(securePrefs.loadIdToken())
+        }
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         // Samsung / niektóre ROM-y ubijają service gdy użytkownik wymiata z recent apps
-        // Restartuj natychmiast
         val restartIntent = Intent(applicationContext, WebSocketService::class.java)
         val pendingIntent = PendingIntent.getService(
             this, 1, restartIntent,
@@ -76,13 +83,11 @@ class WebSocketService : Service() {
     override fun onDestroy() {
         job.cancel()
         wsManager.stop()
-        // Ostatnia deska ratunku — zaplanuj restart przez AlarmManager
         scheduleRestart()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?) = null
-
 
     @RequiresPermission(Manifest.permission.SCHEDULE_EXACT_ALARM)
     private fun scheduleRestart() {
@@ -99,51 +104,69 @@ class WebSocketService : Service() {
         )
     }
 
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     private fun handlePushMessage(msg: String) {
-        Log.d("WSService", "Push: $msg")
-        val entity = NotificationEntity(
-            entFriendlyName = "ws_heartbeat",
-            entType = "ws_heartbeat",
-            content = "ws_heartbeat",
-            timestamp = Instant.now().epochSecond,
-            timestampReceived = Instant.now().epochSecond
-        )
-        serviceScope.launch {
-            dao.insert(entity)
-            dao.keepLatest500()
-            EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", DateTimeUtil.toWarsawDt(entity.timestamp), "ws_heartbeat"))
+        log.debug("Push: {}", msg)
+        when {
+            msg.contains("auth_error") -> handleAuthError()
+            msg.contains("auth_ok")    -> handleAuthOk()
+            msg.contains("timestamp")  -> handleHeartbeat(msg)
+            else                       -> handleNotification(msg)
         }
+    }
+
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    private fun handleAuthOk() {
+        startNotificationService("websocket", "websocket", "usługa", "auth ok", Instant.now().epochSecond)
+    }
+
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    private fun handleAuthError() {
+        startNotificationService("websocket", "websocket", "usługa", "auth nok", Instant.now().epochSecond)
+        wsManager.stop()
+        serviceScope.launch {
+            backendAuthService.authenticateAndSendCredHome()
+            wsManager.start(securePrefs.loadIdToken())
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    private fun handleHeartbeat(msg: String) {
+        val obj = Json.parseToJsonElement(msg).jsonObject
+        val timestamp = obj["timestamp"]?.jsonPrimitive?.long ?: Instant.now().epochSecond
+        startNotificationService("websocket", "websocket", "websocket", DateTimeUtil.dateFormatterHrMinSec.format(DateTimeUtil.toWarsawDt(timestamp)), timestamp)
+    }
+
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    private fun handleNotification(msg: String) {
+        log.info("WS notification: {}", msg)
+        val obj = runCatching { Json.parseToJsonElement(msg).jsonObject }.getOrNull()
+        val content         = obj?.get("msg")?.jsonPrimitive?.content ?: ""
+        val timestamp       = obj?.get("timestamp")?.jsonPrimitive?.long ?: Instant.now().epochSecond
+
+        startNotificationService("webSocket",  "websocket",  "websocket", content, timestamp)
+    }
+
+    @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
+    private fun startNotificationService(source: String, entFriendlyName: String, entType: String, content: String, timestamp: Long) {
+        val intent = Intent(this, NotificationForegroundService::class.java).apply {
+            putExtra("source", source)
+            putExtra("entFriendlyName", entFriendlyName)
+            putExtra("entType", entType)
+            putExtra("notificationContent", content)
+            putExtra("notificationTimestamp", timestamp)
+        }
+        startForegroundService(intent)
     }
 
     private fun updateNotification(state: WebSocketManager.State) {
         val text = when (state) {
-            WebSocketManager.State.CONNECTED -> "Połączono WS"
-            WebSocketManager.State.CONNECTING -> "Łączenie WS..."
+            WebSocketManager.State.CONNECTED    -> "Połączono WS"
+            WebSocketManager.State.CONNECTING   -> "Łączenie WS..."
             WebSocketManager.State.RECONNECTING -> "Ponowne łączenie WS..."
-            WebSocketManager.State.STOPPED -> "Zatrzymano WS"
+            WebSocketManager.State.STOPPED      -> "Zatrzymano WS"
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIF_ID, notificationHandler.getNotificationForWsStart(text))
     }
-
-//    private fun createNotificationChannel() {
-//        val channel = NotificationChannel(
-//            CHANNEL_ID,
-//            "Połączenie z serwerem",
-//            NotificationManager.IMPORTANCE_LOW  // LOW = brak dźwięku, ale nie można ukryć (to ważne!)
-//        ).apply {
-//            setShowBadge(false)
-//            lockscreenVisibility = Notification.VISIBILITY_SECRET
-//        }
-//        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-//    }
-//
-//    private fun buildNotification(status: String) = NotificationCompat.Builder(this, CHANNEL_ID)
-//        .setContentTitle("Personal Notificator")
-//        .setContentText(status)
-//        .setSmallIcon(R.drawable.ic_notification)
-//        .setOngoing(true)
-//        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-//        .setSilent(true)
-//        .build()
 }

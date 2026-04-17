@@ -6,5 +6,6 @@ data class EventViewDto(
     val friendlyName: String,
     val dateTime: LocalDateTime,
     val msg :String,
-    val isFirstAtDay: Boolean
+    val isFirstAtDay: Boolean,
+    val received: LocalDateTime
 )

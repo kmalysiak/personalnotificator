@@ -3,7 +3,6 @@ package pl.kmalysiak.personalnotificator
 import android.Manifest
 import android.app.Notification
 import android.app.Service
-import android.content.ContentValues.TAG
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -13,8 +12,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
-import android.util.Log
 import androidx.annotation.RequiresPermission
+import org.slf4j.LoggerFactory
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,16 +25,18 @@ import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 import java.io.File
-import javax.inject.Inject
 import java.io.IOException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.util.LinkedList
 import java.util.Locale
 import java.util.Queue
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class NotificationForegroundService : Service() {
+
+    private val log = LoggerFactory.getLogger(NotificationForegroundService::class.java)
 
     @Inject lateinit var notificationHandler: NotificationHandler
     @Inject lateinit var prefsDataUtil: PreferencesDataUtil
@@ -46,26 +47,25 @@ class NotificationForegroundService : Service() {
     private val queue: Queue<String> = LinkedList()
     private var isPlaying = false
     private var ttsInitialized = false
-    private lateinit var wavFile: File
+    private var wavFile: File? = null
 
-    private val serviceScope = CoroutineScope(
-        SupervisorJob() + Dispatchers.IO
-    )
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onCreate() {
-        Log.i(TAG, "NotificationForegroundService, onCreate")
+        log.info("NotificationForegroundService, onCreate")
         super.onCreate()
         startForeground(1, createNotification())
         initTTS()
     }
 
-    //tutaj wchodzi wywołanie powiadomień
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val int = intent ?: return START_NOT_STICKY
+        val safeIntent = intent ?: return START_NOT_STICKY
         serviceScope.launch {
-            val notification = if (int.getStringExtra("source").isNullOrBlank()) {
+            val notification = if (safeIntent.getStringExtra("source").isNullOrBlank()) {
                 NotificationEntity(
                     entFriendlyName = "usługa powiadomień",
                     entType = "usługa",
@@ -75,28 +75,32 @@ class NotificationForegroundService : Service() {
                 )
             } else {
                 NotificationEntity(
-                    entFriendlyName = int.getStringExtra("entFriendlyName") ?: "nieznany",
-                    entType = int.getStringExtra("entType") ?: "nieznany",
-                    content = int.getStringExtra("notificationContent") ?: "",
-                    timestamp = int.getLongExtra("notificationTimestamp", Instant.now().epochSecond),
+                    entFriendlyName = safeIntent.getStringExtra("entFriendlyName") ?: "nieznany",
+                    entType = safeIntent.getStringExtra("entType") ?: "nieznany",
+                    content = safeIntent.getStringExtra("notificationContent") ?: "",
+                    timestamp = safeIntent.getLongExtra("notificationTimestamp", Instant.now().epochSecond),
                     timestampReceived = Instant.now().epochSecond
                 )
-
             }
             dao.insert(notification)
             dao.keepLatest500()
 
             val text = notification.entFriendlyName + ", " + notification.content
+            val shouldPlay = prefsDataUtil.getByName(notification.entType)
 
-            if (prefsDataUtil.getByName(notification.entType)) {
-                queue.offer(text)
-                processQueue()
+            EventBus.getDefault().post(
+                EventWithDateTimeAndStatus("Event", DateTimeUtil.toWarsawDt(notification.timestamp), text)
+            )
+
+            if (shouldPlay) {
+                mainHandler.post {
+                    queue.offer(text)
+                    processQueue()
+                }
             } else {
-                Log.i("TTS", "TTS dla powiadomienia:${notification.entFriendlyName} jest wyłączone w preferencjach")
+                log.info("TTS dla powiadomienia:{} jest wyłączone w preferencjach", notification.entFriendlyName)
             }
-            EventBus.getDefault().post(EventWithDateTimeAndStatus("Event", DateTimeUtil.toWarsawDt(notification.timestamp), text))
         }
-
         return START_NOT_STICKY
     }
 
@@ -104,54 +108,57 @@ class NotificationForegroundService : Service() {
         tts = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 tts?.language = Locale("pl", "PL")
-                Log.i(TAG, "TTS on, locale US")
+                log.info("TTS on, locale PL")
                 ttsInitialized = true
                 processQueue()
                 EventBus.getDefault().post(EventWithDateTimeAndStatus("TTS", LocalDateTime.now(), "OK"))
             } else {
-                EventBus.getDefault().post(EventWithDateTimeAndStatus("TTS", LocalDateTime.now(), "NOK"))
-                Log.e("TTS", "TTS FAILURE:$status")
                 ttsInitialized = false
-
+                log.error("TTS FAILURE: {}", status)
+                EventBus.getDefault().post(EventWithDateTimeAndStatus("TTS", LocalDateTime.now(), "NOK"))
             }
         }
     }
 
     private fun processQueue() {
-        Log.i(TAG, "Processing queue")
         if (!ttsInitialized) {
-            Log.w(TAG, "błąd inicjalizacji TTS, nie zagram dźwieku")
+            log.warn("błąd inicjalizacji TTS, nie zagram dźwięku")
             return
         }
-
         if (isPlaying || queue.isEmpty()) return
 
-        isPlaying = true
         val text = queue.poll() ?: return
-        wavFile = File(getExternalFilesDir(null), "notification.wav")
-        val params = Bundle()
-        tts?.synthesizeToFile(text, params, wavFile, "ttsWav")
-        Handler(Looper.getMainLooper()).postDelayed({ playWav() }, 2000)
+        isPlaying = true
+
+        val file = File(getExternalFilesDir(null), "notification.wav")
+        wavFile = file
+
+        tts?.synthesizeToFile(text, Bundle(), file, "ttsWav")
+        mainHandler.postDelayed({ playWav() }, 2000)
     }
 
     private fun playWav() {
-        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-        val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
-        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-
-        val req = AudioFocusRequest
-            .Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-            .setOnAudioFocusChangeListener { }
-            .build()
-
-        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
-        audioManager.abandonAudioFocusRequest(req)
-
-        if (!wavFile.exists()) {
+        val file = wavFile
+        if (file == null || !file.exists()) {
+            log.warn("plik WAV nie istnieje, pomijam odtwarzanie")
             isPlaying = false
             processQueue()
             return
         }
+
+        val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+
+        val focusRequest = AudioFocusRequest
+            .Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            .setOnAudioFocusChangeListener {}
+            .build()
+
+        audioManager.requestAudioFocus(focusRequest)
+        audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
+
+        mediaPlayer?.release()
         mediaPlayer = MediaPlayer()
         mediaPlayer?.setAudioAttributes(
             AudioAttributes.Builder()
@@ -159,30 +166,25 @@ class NotificationForegroundService : Service() {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
         )
+
         try {
-            mediaPlayer?.setDataSource(wavFile.absolutePath)
+            mediaPlayer?.setDataSource(file.absolutePath)
             mediaPlayer?.prepare()
             mediaPlayer?.setOnCompletionListener {
-                audioManager.setStreamVolume(
-                    AudioManager.STREAM_ALARM,
-                    originalVolume,
-                    0
-                )
-                this@NotificationForegroundService.isPlaying = false
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
+                audioManager.abandonAudioFocusRequest(focusRequest)
+                isPlaying = false
                 processQueue()
-                audioManager.abandonAudioFocusRequest(req)
             }
-
             mediaPlayer?.start()
         } catch (e: IOException) {
-            e.printStackTrace()
+            log.error("błąd odtwarzania WAV", e)
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
-            this@NotificationForegroundService.isPlaying = false
+            audioManager.abandonAudioFocusRequest(focusRequest)
+            isPlaying = false
             processQueue()
-            audioManager.abandonAudioFocusRequest(req)
         }
     }
-
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     private fun createNotification(): Notification {
@@ -192,6 +194,7 @@ class NotificationForegroundService : Service() {
     override fun onDestroy() {
         tts?.stop()
         tts?.shutdown()
+        mediaPlayer?.stop()
         mediaPlayer?.release()
         super.onDestroy()
     }

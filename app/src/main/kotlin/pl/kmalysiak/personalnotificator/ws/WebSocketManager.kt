@@ -2,8 +2,8 @@ package pl.kmalysiak.personalnotificator.ws
 
 import android.content.Context
 import android.os.PowerManager
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
+import org.slf4j.LoggerFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -27,6 +27,8 @@ class WebSocketManager(
     private val onStateChange: (State) -> Unit
 ) {
     enum class State { CONNECTING, CONNECTED, RECONNECTING, STOPPED }
+
+    private val log = LoggerFactory.getLogger(WebSocketManager::class.java)
 
     private val client = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)   // Cloudflare timeout ~100s, websockets autoping
@@ -62,7 +64,7 @@ class WebSocketManager(
     //stared by websocket service
     fun start(idToken: String) {
         if (isRunning) {
-            Log.w("WSManager", "start() called but already running — ignoring")
+            log.warn("start() called but already running — ignoring")
             return
         }
         isRunning = true
@@ -98,7 +100,7 @@ class WebSocketManager(
                 reconnectJob?.cancel()
                 ws.send("""{"type":"auth","idToken":"$token"}""")
                 onStateChange(State.CONNECTED)
-                Log.i("WSManager", "Connected and auth sent")
+                log.info("Connected and auth sent")
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
@@ -110,12 +112,12 @@ class WebSocketManager(
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                Log.w("WSManager", "Failure #$failureCount: ${t.message}")
+                log.warn("Failure #{}: {}", failureCount, t.message)
                 scheduleReconnect()
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-                Log.w("WSManager", "Closed: $code / $reason")
+                log.warn("Closed: {} / {}", code, reason)
                 if (isRunning) scheduleReconnect()
             }
         })
@@ -129,14 +131,14 @@ class WebSocketManager(
             // exponential backoff: 2s, 4s, 8s, ... max 60s
             val delay = minOf(2_000L * (1L shl minOf(failureCount, 5)), 60_000L)
             failureCount++
-            Log.i("WSManager", "Reconnect in ${delay}ms (attempt $failureCount)")
+            log.info("Reconnect in {}ms (attempt {})", delay, failureCount)
             delay(delay)
             if (!isRunning) return@launch
             try {
               //  val token = refreshToken()
                 connect(securePrefs.loadIdToken())
             } catch (e: Exception) {
-                Log.e("WSManager", "Token refresh failed: ${e.message}")
+                log.error("Token refresh failed: {}", e.message)
                 scheduleReconnect()
             }
         }

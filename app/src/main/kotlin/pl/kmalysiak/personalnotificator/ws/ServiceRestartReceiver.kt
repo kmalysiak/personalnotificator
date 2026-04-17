@@ -1,11 +1,10 @@
 package pl.kmalysiak.personalnotificator.ws
 
 import android.content.BroadcastReceiver
-import android.content.ContentValues.TAG
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.core.content.ContextCompat
+import org.slf4j.LoggerFactory
 import dagger.hilt.android.AndroidEntryPoint
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import javax.inject.Inject
@@ -21,10 +20,12 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class ServiceRestartReceiver : BroadcastReceiver() {
 
+    private val log = LoggerFactory.getLogger(ServiceRestartReceiver::class.java)
+
     @Inject lateinit var securePrefs: SecurePrefsService
 
     override fun onReceive(context: Context, intent: Intent) {
-        Log.i(TAG, "ServiceRestartReceiver receiver onReceived")
+        log.info("ServiceRestartReceiver receiver onReceived")
         val token = securePrefs.loadIdToken().ifEmpty { return }
         val serviceIntent = Intent(context, WebSocketService::class.java)
             .putExtra("idToken", token)

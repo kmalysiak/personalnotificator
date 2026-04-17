@@ -30,6 +30,18 @@ class DateTimeUtil {
             }
         }
 
+        fun toWarsawDtStr(sec: Long): String {
+
+            return dateTimeFormatter.format(if (sec == -1L) LocalDateTime.MIN else {
+
+                Instant.ofEpochSecond(sec)
+                    .atZone(ZoneId.of("Europe/Warsaw"))
+                    .toLocalDateTime()
+            }
+            )
+        }
+
+
         fun nowToWarsawDt(): LocalDateTime {
             return Instant.now()
                 .atZone(ZoneId.of("Europe/Warsaw"))

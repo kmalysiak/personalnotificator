@@ -148,8 +148,4 @@ class MainActivity : ComponentActivity() {
     }
 
 
-    private fun startMonitoringService() {
-
-        startForegroundService(intent)
-    }
 }

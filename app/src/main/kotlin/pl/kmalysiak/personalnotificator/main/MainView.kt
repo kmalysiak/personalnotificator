@@ -98,10 +98,11 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     }
 
     LaunchedEffect(authResult) {
-        if (authResult.isRegister) {
+        val result = authResult ?: return@LaunchedEffect
+        if (result.isRegister) {
             Toast.makeText(context, "Zalogowano", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "Błąd: ${authResult.errorDesc}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Błąd: ${result.errorDesc}", Toast.LENGTH_SHORT).show()
         }
     }
 

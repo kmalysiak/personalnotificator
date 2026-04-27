@@ -20,7 +20,7 @@ class DateTimeUtil {
             val aLd = toWarsawDt(a)
             val bLd = toWarsawDt(b)
 
-            return aLd.dayOfYear == bLd.dayOfYear
+            return aLd.dayOfYear == bLd.dayOfYear && aLd.year == bLd.year
         }
 
         fun toWarsawDt(sec: Long): LocalDateTime {

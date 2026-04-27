@@ -89,8 +89,8 @@ class AppViewModel @Inject constructor(
         ctx.stopService(Intent(ctx, WebSocketService::class.java))
     }
 
-    internal val authResult: StateFlow<BackendAuthResult> get() = _authResult
-    private val _authResult = MutableStateFlow(BackendAuthResult(false, "none"))
+    internal val authResult: StateFlow<BackendAuthResult?> get() = _authResult
+    private val _authResult = MutableStateFlow<BackendAuthResult?>(null)
 
 
     var username = mutableStateOf("")
@@ -112,7 +112,10 @@ class AppViewModel @Inject constructor(
     }
 
     fun authenticate() {
-        viewModelScope.launch { _authResult.value = backendAuthService.authenticateAndSendCredHome() }
+        viewModelScope.launch {
+            _authResult.value = null
+            _authResult.value = backendAuthService.authenticateAndSendCredHome()
+        }
     }
 
     init {

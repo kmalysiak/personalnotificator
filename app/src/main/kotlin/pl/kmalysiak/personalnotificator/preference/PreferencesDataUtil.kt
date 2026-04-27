@@ -44,6 +44,12 @@ class PreferencesDataUtil @Inject constructor(@ApplicationContext context: Conte
     fun getForDisplay(): List<UiPref> = getAll()
         .map { UiPref(it.key, it.value) }
         .sortedBy { it.name }
+
+    fun saveTtsVolume(volume: Float) = prefs.edit { putFloat("tts_volume", volume) }
+    fun loadTtsVolume(): Float = prefs.getFloat("tts_volume", 1.0f)
+
+    fun saveTtsReady(ready: Boolean) = prefs.edit { putBoolean("tts_ready", ready) }
+    fun loadTtsReady(): Boolean? = if (prefs.contains("tts_ready")) prefs.getBoolean("tts_ready", false) else null
 }
 
 data class UiPref(val name: String, val enabled: Boolean)

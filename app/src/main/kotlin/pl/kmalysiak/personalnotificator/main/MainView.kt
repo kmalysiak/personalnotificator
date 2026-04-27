@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
@@ -22,7 +25,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -30,6 +36,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -59,6 +67,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
+import pl.kmalysiak.personalnotificator.BuildConfig
+import pl.kmalysiak.personalnotificator.config.ConfigRepository
+import pl.kmalysiak.personalnotificator.ws.WebSocketManager
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.coroutines.cancellation.CancellationException
@@ -74,8 +85,10 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     val lastGateOpened by viewModel.lastGateOpened.collectAsState()
     val lastGateClosed by viewModel.lastGateClosed.collectAsState()
     val lastMovement by viewModel.lastMovement.collectAsState()
-    val lastRefreshed by viewModel.lastRefreshed.collectAsState()
     val lastHeartbeat by viewModel.lastHeartbeat.collectAsState()
+    val wsState by viewModel.wsState.collectAsState()
+    val lastReconnectRequest by viewModel.lastReconnectRequest.collectAsState()
+    val ttsReady by viewModel.ttsReady.collectAsState()
     val authResult by viewModel.authResult.collectAsState()
     val username by viewModel.username
     val password by viewModel.password
@@ -95,8 +108,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 30.dp) // Distance from the top edge
-
+            .statusBarsPadding()
     ) {
         Column(
             modifier = Modifier
@@ -123,7 +135,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                 var regResult by remember { mutableStateOf<BackendAuthResult?>(null) }
 
                 when (selectedTabIndex) {
-                    0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, lastRefreshed, lastHeartbeat, tableData)
+                    0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, lastReconnectRequest, lastHeartbeat, wsState, ttsReady, tableData)
                     { ->
                         scope.launch {
                             viewModel.clearDb()
@@ -207,6 +219,57 @@ fun TabSettings(
     permissionData: List<Triple<String, LocalDateTime, String>>,
     viewModel: AppViewModel
 ) {
+    val configMode by viewModel.configMode.collectAsState()
+    val scrollState = rememberScrollState()
+    val buildDate = remember {
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+        sdf.format(java.util.Date(BuildConfig.BUILD_TIME))
+    }
+
+    Column(modifier = Modifier.verticalScroll(scrollState)) {
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Build", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        Text(
+            "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})  ·  $buildDate",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline
+        )
+    }
+
+    HorizontalDivider()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "API env:",
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.width(72.dp)
+        )
+        ConfigRepository.ConfigMode.entries.forEach { mode ->
+            RadioButton(
+                selected = configMode == mode,
+                onClick = { viewModel.setConfigMode(mode) }
+            )
+            Text(
+                text = mode.name.lowercase().replaceFirstChar { it.uppercaseChar() },
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(end = 16.dp)
+            )
+        }
+    }
+
+    HorizontalDivider()
 
     val items = remember {
         mutableStateOf(viewModel.getPrefsForDisplay())
@@ -243,6 +306,26 @@ fun TabSettings(
 
     HorizontalDivider()
 
+    val ttsVolume by viewModel.ttsVolume.collectAsState()
+    Row(
+        modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("TTS volume", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(100.dp))
+        Slider(
+            value = ttsVolume,
+            onValueChange = { viewModel.setTtsVolume(it) },
+            valueRange = 0f..1f,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "${(ttsVolume * 100).toInt()}%",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.width(40.dp),
+        )
+    }
+
+    HorizontalDivider()
 
     Row(
         modifier = Modifier
@@ -295,7 +378,8 @@ fun TabSettings(
         }
     }
 
-    HorizontalDivider(thickness = 1.dp)
+        HorizontalDivider(thickness = 1.dp)
+    }
 }
 
 @Composable
@@ -303,8 +387,10 @@ fun TabEvents(
     lastGateOpened: LocalDateTime,
     lastGateClosed: LocalDateTime,
     lastMovement: LocalDateTime,
-    lastRefreshed: LocalDateTime,
+    lastReconnectRequest: LocalDateTime,
     lastHeartbeat: LocalDateTime,
+    wsState: WebSocketManager.State,
+    ttsReady: Boolean?,
     tableData: List<EventViewDto>,
     onDbClear: () -> Unit
 ) {
@@ -314,18 +400,39 @@ fun TabEvents(
     }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ReadOnlyField(dt = lastMovement, label = "Last  move", modifier = Modifier.weight(1f))
-        ReadOnlyField(dt = lastRefreshed, label = "Last  refreshed", modifier = Modifier.weight(1f))
+        ReadOnlyField(dt = lastReconnectRequest, label = "Last reconnect req", modifier = Modifier.weight(1f))
     }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val (wsIcon, wsColor) = when (wsState) {
+            WebSocketManager.State.CONNECTED           -> Icons.Filled.Check   to MaterialTheme.colorScheme.primary
+            WebSocketManager.State.CONNECTING          -> Icons.Filled.Refresh to MaterialTheme.colorScheme.primary
+            WebSocketManager.State.RECONNECTING        -> Icons.Filled.Refresh to Color(0xFFFF9800)
+            WebSocketManager.State.RECONNECTING_REAUTH -> Icons.Filled.Lock    to Color(0xFFFF9800)
+            WebSocketManager.State.STOPPED             -> Icons.Filled.Warning to MaterialTheme.colorScheme.error
+        }
+        StatusField(
+            value = wsState.name,
+            label = "WS status",
+            modifier = Modifier.weight(1f),
+            leadingIcon = { Icon(imageVector = wsIcon, contentDescription = null, tint = wsColor) }
+        )
         ReadOnlyField(dt = lastHeartbeat, label = "Last  heartbeat", modifier = Modifier.weight(1f))
+    }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val (ttsIcon, ttsColor, ttsLabel) = when (ttsReady) {
+            true  -> Triple(Icons.Filled.Check,   MaterialTheme.colorScheme.primary, "TTS OK")
+            false -> Triple(Icons.Filled.Warning,  MaterialTheme.colorScheme.error,   "TTS NOK")
+            null  -> Triple(Icons.Filled.Refresh,  MaterialTheme.colorScheme.outline, "TTS ...")
+        }
+        StatusField(
+            value = ttsLabel,
+            label = "TTS",
+            modifier = Modifier.weight(1f),
+            leadingIcon = { Icon(imageVector = ttsIcon, contentDescription = null, tint = ttsColor) }
+        )
         Spacer(modifier = Modifier.weight(1f))
     }
 
-//    LastEventDateTime("Last  opened:", lastGateOpened)
-//    LastEventDateTime("Last  closed:", lastGateClosed)
-//    LastEventDateTime("Last move:", lastMovement)
-//    LastEventDateTime("Last refreshed:", lastRefreshed)
-//    LastEventDateTime("Last heartbeat:", lastHeartbeat)
     Text("Events", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
 
     Row(
@@ -412,17 +519,35 @@ fun ReadOnlyField(
     dt: LocalDateTime,
     label: String,
     modifier: Modifier = Modifier,
-    weight: Float? = null
 ) {
     OutlinedTextField(
         value = if (dt == LocalDateTime.MIN) "-" else dateFormatter.format(dt),
         onValueChange = {},
         label = { Text(label) },
         readOnly = true,
-        modifier = modifier,
+        singleLine = true,
+        modifier = modifier.height(54.dp),
     )
 }
 
+
+@Composable
+fun StatusField(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    leadingIcon: @Composable (() -> Unit)? = null,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        label = { Text(label) },
+        readOnly = true,
+        singleLine = true,
+        modifier = modifier.height(54.dp),
+        leadingIcon = leadingIcon,
+    )
+}
 
 @Composable
 fun LongPressButton(

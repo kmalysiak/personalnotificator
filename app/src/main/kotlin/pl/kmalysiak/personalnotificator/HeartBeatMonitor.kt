@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.Notification
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -17,7 +19,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.greenrobot.eventbus.EventBus
 import dagger.hilt.android.AndroidEntryPoint
-import pl.kmalysiak.personalnotificator.config.AppConfig
+import pl.kmalysiak.personalnotificator.config.ConfigRepository
 import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
 import pl.kmalysiak.personalnotificator.model.event.HeartbeatEvent
 import pl.kmalysiak.personalnotificator.preference.HeartbeatDataUtil
@@ -26,6 +28,8 @@ import java.time.Instant
 import java.time.LocalDateTime
 import javax.inject.Inject
 
+
+//Ten serwis jest obsolete
 @AndroidEntryPoint
 class HeartBeatMonitor : Service() {
 
@@ -33,24 +37,24 @@ class HeartBeatMonitor : Service() {
 
     @Inject lateinit var heartbeatDataUtil: HeartbeatDataUtil
     @Inject lateinit var notificationHandler: NotificationHandler
-    @Inject lateinit var appConfig: AppConfig
+    @Inject lateinit var configRepository: ConfigRepository
 
     private val handler = Handler(Looper.getMainLooper())
     private val checkInterval = 120_000L // 2 min
     private val client = OkHttpClient()
     private var newState: Boolean = true
-    private val checkRunnable = object : Runnable {
-        override fun run() {
-            checkServerHealth()
-        }
-    }
+    private val checkRunnable = Runnable { checkServerHealth() }
     private val serviceScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO
     )
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(2, createNotification())
+        val fgsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+        else
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        startForeground(2, createNotification(), fgsType)
         serviceScope.launch(Dispatchers.IO) {
             checkRunnable.run()
         }
@@ -66,7 +70,7 @@ class HeartBeatMonitor : Service() {
         serviceScope.launch {
             try {
                 val request = Request.Builder()
-                    .url("https://" + appConfig.apiUrl + "api/heartbeat")
+                    .url(configRepository.currentConfig.restApiUrl + "api/heartbeat")
                     .build()
 
                 client.newCall(request).execute().use { response ->

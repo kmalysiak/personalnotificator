@@ -14,7 +14,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import pl.kmalysiak.personalnotificator.config.AppConfig
+import pl.kmalysiak.personalnotificator.config.ConfigRepository
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import java.util.UUID
 import javax.inject.Inject
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory
 @Singleton
 class BackendAuthService @Inject constructor(
     private val securePrefs: SecurePrefsService,
-    private val appConfig: AppConfig,
+    private val configRepository: ConfigRepository,
     @ApplicationContext private val context: Context
 ) {
     private val log = LoggerFactory.getLogger(BackendAuthService::class.java)
@@ -47,11 +47,11 @@ class BackendAuthService @Inject constructor(
 
                 val fcmToken = FirebaseMessaging.getInstance().token.await()
 
-                val body = Payload(uuid = UUID.randomUUID().toString(), fcmToken = fcmToken, login = credentials.first)
+                val body = Payload(fcmToken = fcmToken)
                 val jsonBody = Json.encodeToString(body)
 
                 val request = Request.Builder()
-                    .url("https://" + appConfig.apiUrl + "api/register")
+                    .url(configRepository.currentConfig.restApiUrl + "api/register")
                     .addHeader("Authorization", "Bearer $idToken")
                     .post(jsonBody.toRequestBody("application/json".toMediaType()))
                     .build()
@@ -63,6 +63,7 @@ class BackendAuthService @Inject constructor(
 
                     if (result.isRegister) {
                         securePrefs.saveIdToken(idToken)
+                        securePrefs.saveFcmToken(fcmToken)
 //                        val wsIntent = Intent(context, WebSocketService::class.java)
 //                            .putExtra("idToken", idToken)
 //                        context.startForegroundService(wsIntent)
@@ -82,8 +83,6 @@ class BackendAuthService @Inject constructor(
 
     @Serializable
     data class Payload(
-        val uuid: String,
         val fcmToken: String,
-        val login: String
     )
 }

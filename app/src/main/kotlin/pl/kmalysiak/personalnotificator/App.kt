@@ -16,8 +16,8 @@ class App : Application() {
     @Inject lateinit var securePrefs: SecurePrefsService
 
     override fun onCreate() {
-        super.onCreate()
         initLogback()
+        super.onCreate()
         tryStartWebSocketService()
     }
 

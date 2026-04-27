@@ -1,3 +1,3 @@
 package pl.kmalysiak.personalnotificator.config
 
-data class AppConfig(val apiUrl: String, val featureEnabled: Boolean)
+data class AppConfig(val restApiUrl: String, val wsApiUrl: String, val featureEnabled: Boolean)

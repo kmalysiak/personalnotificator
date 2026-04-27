@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
@@ -35,6 +36,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
 
         val that = this
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(
@@ -53,9 +56,8 @@ class MainActivity : ComponentActivity() {
 
 
         startForegroundService(Intent(this, NotificationForegroundService::class.java))
-        startForegroundService(Intent(this, HeartBeatMonitor::class.java))
+      //  startForegroundService(Intent(this, HeartBeatMonitor::class.java))
 
-        enableEdgeToEdge()
         setContent {
             val viewModel: AppViewModel = viewModel()
             MainView(viewModel = viewModel)

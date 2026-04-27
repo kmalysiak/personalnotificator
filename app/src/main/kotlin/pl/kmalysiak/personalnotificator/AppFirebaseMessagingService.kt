@@ -6,8 +6,16 @@ import androidx.annotation.RequiresPermission
 import org.slf4j.LoggerFactory
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
+import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.model.event.TokenEvent
+import javax.inject.Inject
 
 
 //when a message arrives, Android wakes calls onMessageReceived(...).
@@ -19,8 +27,12 @@ import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 //https://firebase.google.com/docs/cloud-messaging/concept-options#notifications_and_data_messages
 //https://firebase.google.com/docs/cloud-messaging/concept-options#setting-the-priority-of-a-message
 //https://developer.android.com/about/versions/oreo/background
+@AndroidEntryPoint
 class AppFirebaseMessagingService : FirebaseMessagingService() {
 
+    @Inject lateinit var backendAuthService: BackendAuthService
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val log = LoggerFactory.getLogger(AppFirebaseMessagingService::class.java)
 
     override fun onCreate() {
@@ -30,15 +42,22 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        serviceScope.cancel()
         log.debug("DESTROYED")
     }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         log.debug("Refreshed token: {}", token)
-//        val sharedPreferences = getSharedPreferences("AppPrefs", MODE_PRIVATE)
-//        sharedPreferences.edit { putString("FCM_TOKEN", token) }
         EventBus.getDefault().post(TokenEvent(token))
+        serviceScope.launch {
+            val result = backendAuthService.authenticateAndSendCredHome()
+            if (result.isRegister) {
+                log.debug("Token re-registered with backend successfully")
+            } else {
+                log.error("Failed to re-register token with backend: {}", result.errorDesc)
+            }
+        }
     }
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)

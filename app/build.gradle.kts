@@ -1,5 +1,16 @@
 import org.gradle.kotlin.dsl.implementation
 
+fun gitExec(vararg args: String): String = try {
+    ProcessBuilder("git", *args)
+        .directory(rootProject.projectDir)
+        .redirectErrorStream(true)
+        .start()
+        .inputStream.bufferedReader().readText().trim()
+} catch (_: Exception) { "" }
+
+val gitCommitCount = gitExec("rev-list", "--count", "HEAD").toIntOrNull() ?: 1
+val gitShortHash  = gitExec("rev-parse", "--short", "HEAD").ifEmpty { "unknown" }
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,10 +28,11 @@ android {
 
     defaultConfig {
         applicationId = "pl.kmalysiak.personalnotificator"
-        minSdk = 26
+        minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = gitCommitCount
+        versionName = "1.0-$gitShortHash"
+        buildConfigField("long", "BUILD_TIME", "${System.currentTimeMillis()}L")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -43,6 +55,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

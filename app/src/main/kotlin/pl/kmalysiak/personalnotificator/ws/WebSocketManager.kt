@@ -10,11 +10,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import java.util.concurrent.TimeUnit
 
@@ -23,10 +25,11 @@ class WebSocketManager(
     private val context: Context,
     private val serverUrl: String,
     private val securePrefs: SecurePrefsService,
+    private val backendAuthService: BackendAuthService,
     private val onMessage: (String) -> Unit,
-    private val onStateChange: (State) -> Unit
+    private val onStateChange: (State) -> Unit,
 ) {
-    enum class State { CONNECTING, CONNECTED, RECONNECTING, STOPPED }
+    enum class State { CONNECTING, CONNECTED, RECONNECTING, RECONNECTING_REAUTH, STOPPED }
 
     private val log = LoggerFactory.getLogger(WebSocketManager::class.java)
 
@@ -39,9 +42,9 @@ class WebSocketManager(
         .build()
 
     @Volatile private var webSocket: WebSocket? = null
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var reconnectJob: Job? = null
-    @Volatile private var isRunning = false
+    private val isRunning = AtomicBoolean(false)
     private var failureCount = 0
 
     // WakeLock — trzyma CPU aktywny przez połączenie
@@ -62,20 +65,20 @@ class WebSocketManager(
     }
 
     //stared by websocket service
-    fun start(idToken: String) {
-        if (isRunning) {
+    fun start(idToken: String, fcmToken:String) {
+        if (!isRunning.compareAndSet(false, true)) {
             log.warn("start() called but already running — ignoring")
             return
         }
-        isRunning = true
+        scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         securePrefs.saveIdToken(idToken)
         acquireWakeLock()
-        connect(idToken)
+        connect(idToken, fcmToken)
     }
 
     //stopped by websocket service
     fun stop() {
-        isRunning = false
+        isRunning.set(false)
         reconnectJob?.cancel()
         webSocket?.close(1000, "Service stopped")
         releaseWakeLock()
@@ -83,49 +86,58 @@ class WebSocketManager(
         onStateChange(State.STOPPED)
     }
 
-    private fun connect(token: String) {
-        // zamknij poprzednie połączenie zanim otworzysz nowe
+    private fun connect(token: String, fcmToken: String) {
         webSocket?.close(1000, "Reconnecting")
         webSocket = null
 
         onStateChange(State.CONNECTING)
+
         val request = Request.Builder()
             .url(serverUrl)
+            .addHeader("Authorization", "Bearer $token")
+            .addHeader("X-FCM-Token", fcmToken)
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
 
-            override fun onOpen(ws: WebSocket, response: Response) {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
                 failureCount = 0
                 reconnectJob?.cancel()
-                ws.send("""{"type":"auth","idToken":"$token"}""")
                 onStateChange(State.CONNECTED)
-                log.info("Connected and auth sent")
+                log.info("Connected")
             }
 
-            override fun onMessage(ws: WebSocket, text: String) {
+            override fun onMessage(webSocket: WebSocket, text: String) {
                 if (text == "heartbeat" || text == "ping") {
-                    ws.send("pong")  // odpowiedz na heartbeat serwera
+                    webSocket.send("pong")
                     return
                 }
                 onMessage(text)
             }
 
-            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                log.warn("Failure #{}: {}", failureCount, t.message)
-                scheduleReconnect()
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                if (response?.code == 401) {
+                    log.warn("Unauthorized (401) — scheduling reconnect with re-authentication")
+                    scheduleReconnect(reAuthenticate = true)
+                } else {
+                    log.warn("Failure #{}: {}", failureCount, t.message)
+                    scheduleReconnect()
+                }
             }
 
-            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 log.warn("Closed: {} / {}", code, reason)
-                if (isRunning) scheduleReconnect()
+                if (isRunning.get()) scheduleReconnect()
             }
         })
     }
+    private fun scheduleReconnect(reAuthenticate: Boolean = false) {
+        if (!isRunning.get()) return
+        if(reAuthenticate)
+            onStateChange(State.RECONNECTING_REAUTH)
+        else
+            onStateChange(State.RECONNECTING)
 
-    private fun scheduleReconnect() {
-        if (!isRunning) return
-        onStateChange(State.RECONNECTING)
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
             // exponential backoff: 2s, 4s, 8s, ... max 60s
@@ -133,12 +145,15 @@ class WebSocketManager(
             failureCount++
             log.info("Reconnect in {}ms (attempt {})", delay, failureCount)
             delay(delay)
-            if (!isRunning) return@launch
+            if (!isRunning.get()) return@launch
             try {
-              //  val token = refreshToken()
-                connect(securePrefs.loadIdToken())
+                if (reAuthenticate) {
+                    log.info("Re-authenticating before reconnect")
+                    backendAuthService.authenticateAndSendCredHome()
+                }
+                connect(securePrefs.loadIdToken(), securePrefs.loadFcmToken())
             } catch (e: Exception) {
-                log.error("Token refresh failed: {}", e.message)
+                log.error("Reconnect preparation failed: {}", e.message)
                 scheduleReconnect()
             }
         }

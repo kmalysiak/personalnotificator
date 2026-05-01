@@ -65,10 +65,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
-import pl.kmalysiak.personalnotificator.DateTimeUtil
+import pl.kmalysiak.personalnotificator.main.DateTimeUtil
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import pl.kmalysiak.personalnotificator.BuildConfig
-import pl.kmalysiak.personalnotificator.config.ConfigRepository
+import pl.kmalysiak.personalnotificator.appstate.ConfigRepository
 import pl.kmalysiak.personalnotificator.ws.WebSocketManager
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter

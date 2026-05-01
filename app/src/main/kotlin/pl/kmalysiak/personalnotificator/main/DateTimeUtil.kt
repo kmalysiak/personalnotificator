@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator
+package pl.kmalysiak.personalnotificator.main
 
 import java.time.Instant
 import java.time.LocalDateTime

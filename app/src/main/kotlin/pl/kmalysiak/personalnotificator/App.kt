@@ -9,7 +9,7 @@ import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.joran.JoranConfigurator
 import dagger.hilt.android.HiltAndroidApp
 import org.slf4j.LoggerFactory
-import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
+import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
 import pl.kmalysiak.personalnotificator.ws.WebSocketService
 import javax.inject.Inject
 

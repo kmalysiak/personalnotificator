@@ -6,7 +6,7 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import org.slf4j.LoggerFactory
 import dagger.hilt.android.AndroidEntryPoint
-import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
+import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
 import javax.inject.Inject
 
 //funkcja: ServiceRestartReceiver służy do restartu WebSocketService gdy zostanie zabity przez system.

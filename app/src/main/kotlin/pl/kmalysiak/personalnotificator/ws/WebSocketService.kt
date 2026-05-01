@@ -22,13 +22,13 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
-import pl.kmalysiak.personalnotificator.AppStateRepository
-import pl.kmalysiak.personalnotificator.DateTimeUtil
-import pl.kmalysiak.personalnotificator.NotificationForegroundService
-import pl.kmalysiak.personalnotificator.NotificationHandler
+import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
+import pl.kmalysiak.personalnotificator.main.DateTimeUtil
+import pl.kmalysiak.personalnotificator.model.appnotification.NotificationForegroundService
+import pl.kmalysiak.personalnotificator.sysnotification.SysNotificationHandler
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
-import pl.kmalysiak.personalnotificator.config.ConfigRepository
-import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
+import pl.kmalysiak.personalnotificator.appstate.ConfigRepository
+import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
 import java.time.Instant
 import javax.inject.Inject
 
@@ -39,7 +39,7 @@ class WebSocketService : Service() {
     private val log = LoggerFactory.getLogger(WebSocketService::class.java)
 
     @Inject lateinit var securePrefs: SecurePrefsService
-    @Inject lateinit var notificationHandler: NotificationHandler
+    @Inject lateinit var sysNotificationHandler: SysNotificationHandler
     @Inject lateinit var configRepository: ConfigRepository
     @Inject lateinit var backendAuthService: BackendAuthService
     @Inject lateinit var appStateRepo: AppStateRepository
@@ -58,7 +58,7 @@ class WebSocketService : Service() {
         else
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         try {
-            startForeground(NOTIF_ID, notificationHandler.getNotificationForWsStart("Łączenie..."), fgsType)
+            startForeground(NOTIF_ID, sysNotificationHandler.getNotificationForWsStart("Łączenie..."), fgsType)
         } catch (e: Exception) {
             log.error("startForeground failed: {}", e.message)
         }
@@ -206,7 +206,7 @@ class WebSocketService : Service() {
             WebSocketManager.State.STOPPED             -> "Zatrzymano WS"
         }
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIF_ID, notificationHandler.getNotificationForWsStart(text))
+        manager.notify(NOTIF_ID, sysNotificationHandler.getNotificationForWsStart(text))
         appStateRepo.setWsState(state)
     }
 }

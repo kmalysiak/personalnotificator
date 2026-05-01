@@ -2,7 +2,7 @@ package pl.kmalysiak.personalnotificator.model.dao
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
-import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
+import pl.kmalysiak.personalnotificator.model.dao.NotificationEntity
 
 @Database(entities = [NotificationEntity::class], version = 4)
 abstract class NotificatorDatabase : RoomDatabase() {

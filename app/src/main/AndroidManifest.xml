@@ -37,13 +37,13 @@
         </activity>
 
         <service
-            android:name=".NotificationForegroundService"
+            android:name=".model.appnotification.NotificationForegroundService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
             android:permission="android.permission.POST_NOTIFICATIONS"
             />
         <service
-            android:name=".AppFirebaseMessagingService"
+            android:name=".firebase.AppFirebaseMessagingService"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

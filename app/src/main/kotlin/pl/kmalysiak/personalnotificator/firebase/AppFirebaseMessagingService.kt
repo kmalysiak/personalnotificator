@@ -1,9 +1,8 @@
-package pl.kmalysiak.personalnotificator
+package pl.kmalysiak.personalnotificator.firebase
 
 import android.Manifest
 import android.content.Intent
 import androidx.annotation.RequiresPermission
-import org.slf4j.LoggerFactory
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -12,9 +11,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
+import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
+import pl.kmalysiak.personalnotificator.model.appnotification.NotificationForegroundService
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import javax.inject.Inject
-
 
 //when a message arrives, Android wakes calls onMessageReceived(...).
 //This works even if: app is not running and screen is off.
@@ -28,8 +29,10 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class AppFirebaseMessagingService : FirebaseMessagingService() {
 
-    @Inject lateinit var backendAuthService: BackendAuthService
-    @Inject lateinit var appStateRepo: AppStateRepository
+    @Inject
+    lateinit var backendAuthService: BackendAuthService
+    @Inject
+    lateinit var appStateRepo: AppStateRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val log = LoggerFactory.getLogger(AppFirebaseMessagingService::class.java)

@@ -2,6 +2,7 @@ package pl.kmalysiak.personalnotificator
 
 import org.junit.Assert.*
 import org.junit.Test
+import pl.kmalysiak.personalnotificator.main.DateTimeUtil
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime

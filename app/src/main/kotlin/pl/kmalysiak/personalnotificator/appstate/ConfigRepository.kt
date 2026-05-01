@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator.config
+package pl.kmalysiak.personalnotificator.appstate
 
 import android.content.Context
 import com.google.gson.Gson

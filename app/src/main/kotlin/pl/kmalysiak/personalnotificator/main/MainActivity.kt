@@ -24,9 +24,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import pl.kmalysiak.personalnotificator.App
-import pl.kmalysiak.personalnotificator.AppStateRepository
-import pl.kmalysiak.personalnotificator.DateTimeUtil
-import pl.kmalysiak.personalnotificator.NotificationForegroundService
+import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
+import pl.kmalysiak.personalnotificator.model.appnotification.NotificationForegroundService
 import javax.inject.Inject
 
 @AndroidEntryPoint

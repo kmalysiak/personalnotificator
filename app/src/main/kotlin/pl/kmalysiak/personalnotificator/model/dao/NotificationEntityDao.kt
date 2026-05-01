@@ -3,7 +3,7 @@ package pl.kmalysiak.personalnotificator.model.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
+import pl.kmalysiak.personalnotificator.model.dao.NotificationEntity
 
 @Dao
 interface NotificationEntityDao {

@@ -8,7 +8,7 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
+import pl.kmalysiak.personalnotificator.appstate.PreferencesDataUtil
 
 @RunWith(AndroidJUnit4::class)
 class PreferencesDataUtilTest {

@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator
+package pl.kmalysiak.personalnotificator.appstate
 
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -14,9 +14,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import pl.kmalysiak.personalnotificator.config.ConfigRepository
-import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
-import java.util.UUID
+import pl.kmalysiak.personalnotificator.appstate.ConfigRepository
+import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException

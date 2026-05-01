@@ -1,10 +1,8 @@
-package pl.kmalysiak.personalnotificator.model.secure
+package pl.kmalysiak.personalnotificator.appstate
 
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme
-import androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.slf4j.LoggerFactory
 import javax.inject.Inject
@@ -35,8 +33,8 @@ class SecurePrefsService @Inject constructor(@ApplicationContext context: Contex
             PREF_NAME,
             MASTER_KEY_ALIAS,
             context,
-            PrefKeyEncryptionScheme.AES256_SIV,
-            PrefValueEncryptionScheme.AES256_GCM
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
 
     companion object {

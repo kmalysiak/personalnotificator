@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator.di
+package pl.kmalysiak.personalnotificator
 
 import android.content.Context
 import androidx.room.Room
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object DatabaseModule {
+object DiModulesLoader {
 
     @Provides
     @Singleton

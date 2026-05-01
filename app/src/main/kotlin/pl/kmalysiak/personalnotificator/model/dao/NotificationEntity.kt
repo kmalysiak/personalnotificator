@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator.model.data
+package pl.kmalysiak.personalnotificator.model.dao
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

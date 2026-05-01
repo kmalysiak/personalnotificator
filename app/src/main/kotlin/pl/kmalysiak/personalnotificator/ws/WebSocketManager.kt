@@ -17,7 +17,7 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
-import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
+import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
 import java.util.concurrent.TimeUnit
 
 //to nie powinien być Singleton -> cykl życia związany z WebSocketService

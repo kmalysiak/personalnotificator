@@ -1,4 +1,4 @@
-package pl.kmalysiak.personalnotificator.preference
+package pl.kmalysiak.personalnotificator.appstate
 
 import android.content.Context
 import androidx.core.content.edit

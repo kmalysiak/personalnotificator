@@ -12,15 +12,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.kmalysiak.personalnotificator.App
-import pl.kmalysiak.personalnotificator.AppStateRepository
-import pl.kmalysiak.personalnotificator.DateTimeUtil
+import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
+import pl.kmalysiak.personalnotificator.main.DateTimeUtil
+import pl.kmalysiak.personalnotificator.model.dao.NotificationRepository
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
-import pl.kmalysiak.personalnotificator.config.ConfigRepository
-import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
-import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
-import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
-import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
+import pl.kmalysiak.personalnotificator.appstate.ConfigRepository
+import pl.kmalysiak.personalnotificator.model.dao.NotificationEntity
+import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
+import pl.kmalysiak.personalnotificator.appstate.PreferencesDataUtil
 import pl.kmalysiak.personalnotificator.ws.WebSocketManager
 import pl.kmalysiak.personalnotificator.ws.WebSocketService
 import java.time.LocalDateTime
@@ -33,7 +33,7 @@ class AppViewModel @Inject constructor(
     private val prefsDataUtil: PreferencesDataUtil,
     private val backendAuthService: BackendAuthService,
     private val configRepository: ConfigRepository,
-    private val dao: NotificationEntityDao,
+    private val notificationRepository: NotificationRepository,
     private val appStateRepo: AppStateRepository
 ) : AndroidViewModel(application) {
 
@@ -46,8 +46,6 @@ class AppViewModel @Inject constructor(
     internal val lastGateClosed: StateFlow<LocalDateTime> get() = _lastGateClosed
     private val _lastMovement = MutableStateFlow(LocalDateTime.MIN)
     internal val lastMovement: StateFlow<LocalDateTime> get() = _lastMovement
-    private val _lastRefreshed = MutableStateFlow(LocalDateTime.MIN)
-    internal val lastRefreshed: StateFlow<LocalDateTime> get() = _lastRefreshed
 
     internal val token: StateFlow<String> = appStateRepo.fcmToken
     internal val wsState: StateFlow<WebSocketManager.State> = appStateRepo.wsState
@@ -121,9 +119,8 @@ class AppViewModel @Inject constructor(
     }
 
     private suspend fun reloadFromDb() {
-        val entities = dao.getAll()
+        val entities = notificationRepository.getAll()
         _tableData.value = entitiesToEventViews(entities)
-        _lastRefreshed.value = DateTimeUtil.nowToWarsawDt()
         prefsDataUtil.updatePreferences(entities.map { it.entType })
         val (opened, closed, movement) = filterLastEvents(entities)
         _lastGateOpened.value = opened
@@ -160,12 +157,11 @@ class AppViewModel @Inject constructor(
 
     fun clearDb() {
         viewModelScope.launch(Dispatchers.IO) {
-            dao.deleteALl()
+            notificationRepository.deleteAll()
             _tableData.value = emptyList()
             _lastGateOpened.value = LocalDateTime.MIN
             _lastGateClosed.value = LocalDateTime.MIN
             _lastMovement.value = LocalDateTime.MIN
-            _lastRefreshed.value = DateTimeUtil.nowToWarsawDt()
         }
     }
 }

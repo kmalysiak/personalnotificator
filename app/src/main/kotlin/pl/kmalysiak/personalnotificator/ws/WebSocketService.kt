@@ -22,14 +22,12 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
-import org.greenrobot.eventbus.EventBus
+import pl.kmalysiak.personalnotificator.AppStateRepository
 import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.NotificationForegroundService
 import pl.kmalysiak.personalnotificator.NotificationHandler
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.config.ConfigRepository
-import pl.kmalysiak.personalnotificator.model.event.HeartbeatEvent
-import pl.kmalysiak.personalnotificator.model.event.WsStateEvent
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import java.time.Instant
 import javax.inject.Inject
@@ -44,6 +42,7 @@ class WebSocketService : Service() {
     @Inject lateinit var notificationHandler: NotificationHandler
     @Inject lateinit var configRepository: ConfigRepository
     @Inject lateinit var backendAuthService: BackendAuthService
+    @Inject lateinit var appStateRepo: AppStateRepository
 
     private lateinit var wsManager: WebSocketManager
     private val NOTIF_ID = 4
@@ -178,7 +177,7 @@ class WebSocketService : Service() {
         val timestamp          = obj?.get("timestamp")?.jsonPrimitive?.content?.toLongOrNull() ?: Instant.now().epochSecond
 
         if (type == "ws_ping") {
-            EventBus.getDefault().post(HeartbeatEvent(DateTimeUtil.toWarsawDt(timestamp), "ws_ping"))
+            appStateRepo.setLastHeartbeat(DateTimeUtil.toWarsawDt(timestamp))
             return
         }
 
@@ -208,6 +207,6 @@ class WebSocketService : Service() {
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIF_ID, notificationHandler.getNotificationForWsStart(text))
-        EventBus.getDefault().postSticky(WsStateEvent(state))
+        appStateRepo.setWsState(state)
     }
 }

@@ -3,34 +3,26 @@ package pl.kmalysiak.personalnotificator.main
 import android.app.Application
 import android.content.Intent
 import androidx.compose.runtime.mutableStateOf
-import org.slf4j.LoggerFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
-import org.greenrobot.eventbus.ThreadMode
+import kotlinx.coroutines.withContext
+import pl.kmalysiak.personalnotificator.App
+import pl.kmalysiak.personalnotificator.AppStateRepository
 import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.config.ConfigRepository
 import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
-import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
-import pl.kmalysiak.personalnotificator.model.event.HeartbeatEvent
-import pl.kmalysiak.personalnotificator.model.event.PermEvent
-import pl.kmalysiak.personalnotificator.model.event.TokenEvent
-import pl.kmalysiak.personalnotificator.model.event.ReconnectRequestEvent
-import pl.kmalysiak.personalnotificator.model.event.WsStateEvent
-import pl.kmalysiak.personalnotificator.ws.WebSocketManager
-import pl.kmalysiak.personalnotificator.ws.WebSocketService
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
+import pl.kmalysiak.personalnotificator.ws.WebSocketManager
+import pl.kmalysiak.personalnotificator.ws.WebSocketService
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -41,17 +33,13 @@ class AppViewModel @Inject constructor(
     private val prefsDataUtil: PreferencesDataUtil,
     private val backendAuthService: BackendAuthService,
     private val configRepository: ConfigRepository,
-    private val dao: NotificationEntityDao
+    private val dao: NotificationEntityDao,
+    private val appStateRepo: AppStateRepository
 ) : AndroidViewModel(application) {
-    private val log = LoggerFactory.getLogger(AppViewModel::class.java)
-    private val _token = MutableStateFlow("Token unknown")
+
     private val _tableData = MutableStateFlow<List<EventViewDto>>(emptyList())
-
-
-    private val _permissionData = MutableStateFlow<List<Triple<String, LocalDateTime, String>>>(emptyList())
-    internal val token: StateFlow<String> get() = _token
     internal val tableData: StateFlow<List<EventViewDto>> = _tableData
-    internal val permissionData: StateFlow<List<Triple<String, LocalDateTime, String>>> = _permissionData
+
     private val _lastGateOpened = MutableStateFlow(LocalDateTime.MIN)
     internal val lastGateOpened: StateFlow<LocalDateTime> get() = _lastGateOpened
     private val _lastGateClosed = MutableStateFlow(LocalDateTime.MIN)
@@ -61,17 +49,12 @@ class AppViewModel @Inject constructor(
     private val _lastRefreshed = MutableStateFlow(LocalDateTime.MIN)
     internal val lastRefreshed: StateFlow<LocalDateTime> get() = _lastRefreshed
 
-    private val _lastHeartBeat = MutableStateFlow(LocalDateTime.MIN)
-    internal val lastHeartbeat: StateFlow<LocalDateTime> get() = _lastHeartBeat
-
-    private val _wsState = MutableStateFlow(WebSocketManager.State.STOPPED)
-    internal val wsState: StateFlow<WebSocketManager.State> get() = _wsState
-
-    private val _lastReconnectRequest = MutableStateFlow(LocalDateTime.MIN)
-    internal val lastReconnectRequest: StateFlow<LocalDateTime> get() = _lastReconnectRequest
-
-    private val _ttsReady = MutableStateFlow<Boolean?>(prefsDataUtil.loadTtsReady())
-    internal val ttsReady: StateFlow<Boolean?> get() = _ttsReady
+    internal val token: StateFlow<String> = appStateRepo.fcmToken
+    internal val wsState: StateFlow<WebSocketManager.State> = appStateRepo.wsState
+    internal val lastHeartbeat: StateFlow<LocalDateTime> = appStateRepo.lastHeartbeat
+    internal val ttsReady: StateFlow<Boolean?> = appStateRepo.ttsReady
+    internal val lastReconnectRequest: StateFlow<LocalDateTime> = appStateRepo.lastReconnectRequest
+    internal val permissionData: StateFlow<List<Triple<String, LocalDateTime, String>>> = appStateRepo.permissions
 
     private val _ttsVolume = MutableStateFlow(prefsDataUtil.loadTtsVolume())
     internal val ttsVolume: StateFlow<Float> get() = _ttsVolume
@@ -91,7 +74,6 @@ class AppViewModel @Inject constructor(
 
     internal val authResult: StateFlow<BackendAuthResult?> get() = _authResult
     private val _authResult = MutableStateFlow<BackendAuthResult?>(null)
-
 
     var username = mutableStateOf("")
         private set
@@ -114,25 +96,42 @@ class AppViewModel @Inject constructor(
     fun authenticate() {
         viewModelScope.launch {
             _authResult.value = null
-            _authResult.value = backendAuthService.authenticateAndSendCredHome()
+            val result = backendAuthService.authenticateAndSendCredHome()
+            _authResult.value = result
+            if (result.isRegister) {
+                getApplication<App>().tryStartWebSocketService()
+            }
         }
     }
 
     init {
-        EventBus.getDefault().register(this)
+        if (appStateRepo.ttsReady.value == null) {
+            appStateRepo.setTtsReady(prefsDataUtil.loadTtsReady())
+        }
 
         viewModelScope.launch(Dispatchers.IO) {
-            val daos = dao.getAll()
-            val fl = entitiesToEventViews(daos)
-            _tableData.value = fl
-            val lastEvents = filterLastEvents(daos)
-            _lastGateOpened.value = lastEvents.first
-            _lastGateClosed.value = lastEvents.second
-            _lastMovement.value = lastEvents.third
+            reloadFromDb()
+        }
+
+        viewModelScope.launch {
+            appStateRepo.notificationSaved.collect {
+                withContext(Dispatchers.IO) { reloadFromDb() }
+            }
         }
     }
 
-    private fun CoroutineScope.filterLastEvents(entities: List<NotificationEntity>): Triple<LocalDateTime, LocalDateTime, LocalDateTime> {
+    private suspend fun reloadFromDb() {
+        val entities = dao.getAll()
+        _tableData.value = entitiesToEventViews(entities)
+        _lastRefreshed.value = DateTimeUtil.nowToWarsawDt()
+        prefsDataUtil.updatePreferences(entities.map { it.entType })
+        val (opened, closed, movement) = filterLastEvents(entities)
+        _lastGateOpened.value = opened
+        _lastGateClosed.value = closed
+        _lastMovement.value = movement
+    }
+
+    private fun filterLastEvents(entities: List<NotificationEntity>): Triple<LocalDateTime, LocalDateTime, LocalDateTime> {
         val sorted = entities.sortedByDescending { it.timestamp }
         return Triple(
             DateTimeUtil.toWarsawDt(sorted.firstOrNull { it.entType == "wejście" && "otwarta".contains(it.content) }?.timestamp ?: -1),
@@ -141,28 +140,17 @@ class AppViewModel @Inject constructor(
         )
     }
 
-
-    override fun onCleared() {
-        super.onCleared()
-        EventBus.getDefault().unregister(this)
-    }
-
-
-
     private fun entitiesToEventViews(daos: List<NotificationEntity>): List<EventViewDto> = daos.mapIndexed { idx, entity ->
-
         val nextDt = daos.getOrNull(idx + 1)
-        val isLastAtDay =
-            nextDt != null && !DateTimeUtil.areTheSameDay(entity.timestamp, nextDt.timestamp)
-
+        val isLastAtDay = nextDt != null && !DateTimeUtil.areTheSameDay(entity.timestamp, nextDt.timestamp)
         EventViewDto(
             entity.entFriendlyName,
             DateTimeUtil.toWarsawDt(entity.timestamp),
             entity.content,
             isLastAtDay,
-            DateTimeUtil.toWarsawDt(entity.timestampReceived))
+            DateTimeUtil.toWarsawDt(entity.timestampReceived)
+        )
     }
-
 
     fun getPrefsForDisplay() = prefsDataUtil.getForDisplay()
 
@@ -173,59 +161,11 @@ class AppViewModel @Inject constructor(
     fun clearDb() {
         viewModelScope.launch(Dispatchers.IO) {
             dao.deleteALl()
-            _tableData.value = mutableListOf()
-            val lastEvents = filterLastEvents(mutableListOf())
-            _lastGateOpened.value = lastEvents.first
-            _lastGateClosed.value = lastEvents.second
-            _lastMovement.value = lastEvents.third
-        }
-    }
-
-
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onHeartBeatEvent(event: HeartbeatEvent) {
-        _lastHeartBeat.value = event.timestamp
-    }
-
-
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
-    fun onTokenReceivedEvent(event: TokenEvent) {
-        _token.value = event.token
-        log.debug("Token received: {}", event.token)
-    }
-
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onDateTimeEvent(event: EventWithDateTimeAndStatus) {
-        if (event.type == "TTS") {
-            _ttsReady.value = event.status == "OK"
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            val entities = dao.getAll() //TODO:optimize me update only necessary, not whole
-            val daos = dao.getAll()
-            val fl = entitiesToEventViews(daos)
-            _tableData.value = fl
+            _tableData.value = emptyList()
+            _lastGateOpened.value = LocalDateTime.MIN
+            _lastGateClosed.value = LocalDateTime.MIN
+            _lastMovement.value = LocalDateTime.MIN
             _lastRefreshed.value = DateTimeUtil.nowToWarsawDt()
-            prefsDataUtil.updatePreferences(entities.map { e -> e.entType })
         }
     }
-
-
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
-    fun onWsStateEvent(event: WsStateEvent) {
-        _wsState.value = event.state
-    }
-
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onReconnectRequestEvent(event: ReconnectRequestEvent) {
-        _lastReconnectRequest.value = event.timestamp
-    }
-
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onPermEvent(event: PermEvent) {
-        val newRow = Triple(event.type, event.dt, event.status)
-        _permissionData.value += newRow
-        log.debug("onPermEvent: {}", event)
-    }
-
 }

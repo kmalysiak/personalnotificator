@@ -23,18 +23,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import org.greenrobot.eventbus.EventBus
 import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
 import pl.kmalysiak.personalnotificator.model.data.NotificationEntity
-import pl.kmalysiak.personalnotificator.model.event.EventWithDateTimeAndStatus
-import pl.kmalysiak.personalnotificator.model.event.ReconnectRequestEvent
 import pl.kmalysiak.personalnotificator.model.secure.SecurePrefsService
 import pl.kmalysiak.personalnotificator.preference.PreferencesDataUtil
 import pl.kmalysiak.personalnotificator.ws.WebSocketService
 import java.io.File
 import java.io.IOException
 import java.time.Instant
-import java.time.LocalDateTime
 import java.util.LinkedList
 import java.util.Locale
 import java.util.Queue
@@ -46,17 +42,12 @@ class NotificationForegroundService : Service() {
 
     private val log = LoggerFactory.getLogger(NotificationForegroundService::class.java)
 
-    @Inject
-    lateinit var notificationHandler: NotificationHandler
-    @Inject
-    lateinit var prefsDataUtil: PreferencesDataUtil
-    @Inject
-    lateinit var dao: NotificationEntityDao
-    @Inject
-    lateinit var securePrefs: SecurePrefsService
-    @Inject
-    @ApplicationContext
-    lateinit var context: Context
+    @Inject lateinit var notificationHandler: NotificationHandler
+    @Inject lateinit var prefsDataUtil: PreferencesDataUtil
+    @Inject lateinit var dao: NotificationEntityDao
+    @Inject lateinit var securePrefs: SecurePrefsService
+    @Inject lateinit var appStateRepo: AppStateRepository
+    @Inject @ApplicationContext lateinit var context: Context
 
     private var tts: TextToSpeech? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -95,11 +86,9 @@ class NotificationForegroundService : Service() {
             val text = notification.entFriendlyName + ", " + notification.content
             val shouldPlay = prefsDataUtil.getByName(notification.entType)
 
-            EventBus.getDefault().post(
-                EventWithDateTimeAndStatus("Event", DateTimeUtil.toWarsawDt(notification.timestamp), text)
-            )
+            appStateRepo.emitNotificationSaved()
             if ("reconnect_request" == notification.entType) {
-                EventBus.getDefault().post(ReconnectRequestEvent(DateTimeUtil.toWarsawDt(notification.timestamp)))
+                appStateRepo.setLastReconnectRequest(DateTimeUtil.toWarsawDt(notification.timestamp))
                 val token = securePrefs.loadIdToken() //czy zawsze ustnieje ? powinien skoro przyszło powiadomienie
                 val serviceIntent = Intent(context, WebSocketService::class.java)
                     .putExtra("idToken", token)
@@ -138,12 +127,12 @@ class NotificationForegroundService : Service() {
                 ttsInitialized = true
                 processQueue()
                 prefsDataUtil.saveTtsReady(true)
-                EventBus.getDefault().post(EventWithDateTimeAndStatus("TTS", LocalDateTime.now(), "OK"))
+                appStateRepo.setTtsReady(true)
             } else {
                 ttsInitialized = false
                 log.error("TTS FAILURE: {}", status)
                 prefsDataUtil.saveTtsReady(false)
-                EventBus.getDefault().post(EventWithDateTimeAndStatus("TTS", LocalDateTime.now(), "NOK"))
+                appStateRepo.setTtsReady(false)
             }
         }
     }

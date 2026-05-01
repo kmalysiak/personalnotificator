@@ -43,12 +43,6 @@
             android:permission="android.permission.POST_NOTIFICATIONS"
             />
         <service
-            android:name=".HeartBeatMonitor"
-            android:exported="false"
-            android:foregroundServiceType="dataSync|remoteMessaging"
-            android:permission="android.permission.POST_NOTIFICATIONS"
-            />
-        <service
             android:name=".AppFirebaseMessagingService"
             android:exported="true">
             <intent-filter>

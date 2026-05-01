@@ -12,9 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import org.greenrobot.eventbus.EventBus
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
-import pl.kmalysiak.personalnotificator.model.event.TokenEvent
 import javax.inject.Inject
 
 
@@ -31,6 +29,7 @@ import javax.inject.Inject
 class AppFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var backendAuthService: BackendAuthService
+    @Inject lateinit var appStateRepo: AppStateRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val log = LoggerFactory.getLogger(AppFirebaseMessagingService::class.java)
@@ -49,7 +48,7 @@ class AppFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         log.debug("Refreshed token: {}", token)
-        EventBus.getDefault().post(TokenEvent(token))
+        appStateRepo.setFcmToken(token)
         serviceScope.launch {
             val result = backendAuthService.authenticateAndSendCredHome()
             if (result.isRegister) {

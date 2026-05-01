@@ -12,28 +12,27 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.view.WindowCompat
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import dagger.hilt.android.AndroidEntryPoint
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.messaging.FirebaseMessaging
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.greenrobot.eventbus.EventBus
 import pl.kmalysiak.personalnotificator.App
+import pl.kmalysiak.personalnotificator.AppStateRepository
 import pl.kmalysiak.personalnotificator.DateTimeUtil
-import pl.kmalysiak.personalnotificator.HeartBeatMonitor
 import pl.kmalysiak.personalnotificator.NotificationForegroundService
-import pl.kmalysiak.personalnotificator.model.event.PermEvent
-import pl.kmalysiak.personalnotificator.model.event.TokenEvent
-import java.time.LocalDateTime
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var appStateRepo: AppStateRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,12 +69,8 @@ class MainActivity : ComponentActivity() {
                 return@OnCompleteListener
             }
             val tokenT = task.result
-            Log.d(
-                ContentValues.TAG,
-                "Fetching FCM registration token completed, sending token to bus"
-            )
-            EventBus.getDefault().post(TokenEvent(tokenT))
-
+            Log.d(ContentValues.TAG, "Fetching FCM registration token completed")
+            appStateRepo.setFcmToken(tokenT)
         })
     }
 
@@ -129,13 +124,7 @@ class MainActivity : ComponentActivity() {
                     ContentValues.TAG,
                     "permissionCheck p:${permission.second}, p:${permission.third}, st:$permGranted"
                 )
-                EventBus.getDefault().postSticky(
-                    PermEvent(
-                        permission.second,
-                        DateTimeUtil.nowToWarsawDt(),
-                        permGranted
-                    )
-                )
+                appStateRepo.addPermission(permission.second, DateTimeUtil.nowToWarsawDt(), permGranted)
             }
         }
     }

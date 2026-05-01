@@ -1,4 +1,5 @@
 import org.gradle.kotlin.dsl.implementation
+import java.util.Properties
 
 fun gitExec(vararg args: String): String = try {
     ProcessBuilder("git", *args)
@@ -22,9 +23,27 @@ plugins {
 
 }
 
+val localProps = Properties().apply {
+    val secretsPath = findProperty("secretsFile") as? String
+    val source = when {
+        secretsPath != null -> File(secretsPath)
+        else -> rootProject.file("local.properties")
+    }
+    source.takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 android {
     namespace = "pl.kmalysiak.personalnotificator"
     compileSdk = 36
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(localProps["KEYSTORE_PATH"] as? String ?: "personalnotificator.jks")
+            storePassword = localProps["KEYSTORE_PASS"] as? String ?: ""
+            keyAlias = localProps["KEY_ALIAS"] as? String ?: ""
+            keyPassword = localProps["KEY_PASS"] as? String ?: ""
+        }
+    }
 
     defaultConfig {
         applicationId = "pl.kmalysiak.personalnotificator"
@@ -38,7 +57,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("release")
+        }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -24,6 +24,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.greenrobot.eventbus.EventBus
+import pl.kmalysiak.personalnotificator.App
 import pl.kmalysiak.personalnotificator.DateTimeUtil
 import pl.kmalysiak.personalnotificator.HeartBeatMonitor
 import pl.kmalysiak.personalnotificator.NotificationForegroundService
@@ -76,6 +77,11 @@ class MainActivity : ComponentActivity() {
             EventBus.getDefault().post(TokenEvent(tokenT))
 
         })
+    }
+
+    override fun onStart() {
+        super.onStart()
+        (application as App).tryStartWebSocketService()
     }
 
     override fun onDestroy() {

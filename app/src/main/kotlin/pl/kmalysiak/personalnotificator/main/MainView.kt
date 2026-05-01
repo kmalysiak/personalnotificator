@@ -409,6 +409,7 @@ fun TabEvents(
             WebSocketManager.State.CONNECTING          -> Icons.Filled.Refresh to MaterialTheme.colorScheme.primary
             WebSocketManager.State.RECONNECTING        -> Icons.Filled.Refresh to Color(0xFFFF9800)
             WebSocketManager.State.RECONNECTING_REAUTH -> Icons.Filled.Lock    to Color(0xFFFF9800)
+            WebSocketManager.State.AUTH_ERROR          -> Icons.Filled.Warning to MaterialTheme.colorScheme.error
             WebSocketManager.State.STOPPED             -> Icons.Filled.Warning to MaterialTheme.colorScheme.error
         }
         StatusField(

@@ -29,7 +29,7 @@ class WebSocketManager(
     private val onMessage: (String) -> Unit,
     private val onStateChange: (State) -> Unit,
 ) {
-    enum class State { CONNECTING, CONNECTED, RECONNECTING, RECONNECTING_REAUTH, STOPPED }
+    enum class State { CONNECTING, CONNECTED, RECONNECTING, RECONNECTING_REAUTH, AUTH_ERROR, STOPPED }
 
     private val log = LoggerFactory.getLogger(WebSocketManager::class.java)
 

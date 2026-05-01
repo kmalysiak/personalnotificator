@@ -16,6 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -141,11 +142,20 @@ class WebSocketService : Service() {
         startNotificationService("websocket", "websocket", "usługa", "auth ok", Instant.now().epochSecond)
     }
 
+    private var authErrorCount = 0
+
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
     private fun handleAuthError() {
-        startNotificationService("websocket", "websocket", "usługa", "auth nok", Instant.now().epochSecond)
+        authErrorCount++
+        log.warn("Auth error #{}", authErrorCount)
         wsManager.stop()
+        if (authErrorCount > 3) {
+            log.error("Too many auth errors, giving up")
+            updateNotification(WebSocketManager.State.AUTH_ERROR)
+            return
+        }
         serviceScope.launch {
+            delay(authErrorCount * 5_000L)
             backendAuthService.authenticateAndSendCredHome()
             wsManager.start(securePrefs.loadIdToken(), securePrefs.loadFcmToken())
         }
@@ -189,11 +199,12 @@ class WebSocketService : Service() {
 
     private fun updateNotification(state: WebSocketManager.State) {
         val text = when (state) {
-            WebSocketManager.State.CONNECTED    -> "Połączono WS"
-            WebSocketManager.State.CONNECTING   -> "Łączenie WS"
-            WebSocketManager.State.RECONNECTING -> "Ponowne łączenie WS"
+            WebSocketManager.State.CONNECTED           -> "Połączono WS"
+            WebSocketManager.State.CONNECTING          -> "Łączenie WS"
+            WebSocketManager.State.RECONNECTING        -> "Ponowne łączenie WS"
             WebSocketManager.State.RECONNECTING_REAUTH -> "Ponowne łączenie WS po zalogowaniu"
-            WebSocketManager.State.STOPPED      -> "Zatrzymano WS"
+            WebSocketManager.State.AUTH_ERROR          -> "Błąd autoryzacji WS"
+            WebSocketManager.State.STOPPED             -> "Zatrzymano WS"
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIF_ID, notificationHandler.getNotificationForWsStart(text))

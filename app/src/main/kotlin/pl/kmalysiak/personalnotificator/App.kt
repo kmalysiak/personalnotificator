@@ -1,7 +1,10 @@
 package pl.kmalysiak.personalnotificator
 
 import android.app.Application
+import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Intent
+import android.os.Build
+import android.util.Log
 import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.joran.JoranConfigurator
 import dagger.hilt.android.HiltAndroidApp
@@ -30,8 +33,17 @@ class App : Application() {
         config.doConfigure(assets.open("logback.xml"))
     }
 
-    private fun tryStartWebSocketService() {
+    fun tryStartWebSocketService() {
         val token = securePrefs.loadIdToken().ifEmpty { return }
-        startForegroundService(Intent(this, WebSocketService::class.java).putExtra("idToken", token))
+        val intent = Intent(this, WebSocketService::class.java).putExtra("idToken", token)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                startForegroundService(intent)
+            } catch (e: ForegroundServiceStartNotAllowedException) {
+                Log.w("App", "Cannot start foreground service from background, will retry from foreground")
+            }
+        } else {
+            startForegroundService(intent)
+        }
     }
 }

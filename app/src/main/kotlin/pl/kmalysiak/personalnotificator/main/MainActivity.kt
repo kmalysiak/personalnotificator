@@ -56,7 +56,6 @@ class MainActivity : ComponentActivity() {
 
 
         startForegroundService(Intent(this, NotificationForegroundService::class.java))
-      //  startForegroundService(Intent(this, HeartBeatMonitor::class.java))
 
         setContent {
             val viewModel: AppViewModel = viewModel()

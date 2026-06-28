@@ -14,7 +14,6 @@ val gitShortHash  = gitExec("rev-parse", "--short", "HEAD").ifEmpty { "unknown" 
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     id("com.google.gms.google-services")
@@ -30,6 +29,21 @@ val localProps = Properties().apply {
         else -> rootProject.file("local.properties")
     }
     source.takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
+val copyGoogleServices = tasks.register("copyGoogleServices") {
+    val srcFile = file(localProps["GOOGLE_SERVICES_FILE"] as? String
+        ?: error("GOOGLE_SERVICES_FILE not set in secrets"))
+    val destFile = layout.projectDirectory.file("google-services.json").asFile
+    inputs.file(srcFile)
+    outputs.file(destFile)
+    doLast { srcFile.copyTo(destFile, overwrite = true) }
+}
+
+tasks.configureEach {
+    if (name.matches(Regex("process.*GoogleServices"))) {
+        dependsOn(copyGoogleServices)
+    }
 }
 
 android {
@@ -73,18 +87,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-}
-
-kotlin {
-    sourceSets.main {
-        kotlin.srcDir("build/generated/ksp/main/kotlin")
     }
 }
 
@@ -99,7 +104,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.compose.material:material-icons-core")
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.messaging.ktx)

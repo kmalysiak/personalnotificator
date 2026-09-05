@@ -131,11 +131,22 @@ class AppViewModel @Inject constructor(
     private fun filterLastEvents(entities: List<NotificationEntity>): Triple<LocalDateTime, LocalDateTime, LocalDateTime> {
         val sorted = entities.sortedByDescending { it.timestamp }
         return Triple(
-            DateTimeUtil.toWarsawDt(sorted.firstOrNull { it.entType == "wejście" && "otwarta".contains(it.content) }?.timestamp ?: -1),
-            DateTimeUtil.toWarsawDt(sorted.firstOrNull { it.entType == "wejście" && "zamknięta".contains(it.content) }?.timestamp ?: -1),
-            DateTimeUtil.toWarsawDt(sorted.firstOrNull { it.entType == "ruch" }?.timestamp ?: -1)
+            DateTimeUtil.toWarsawDt(sorted.firstOrNull { isGateOpened(it) }?.timestamp ?: -1),
+            DateTimeUtil.toWarsawDt(sorted.firstOrNull { isGateClosed(it) }?.timestamp ?: -1),
+            DateTimeUtil.toWarsawDt(sorted.firstOrNull { isMovement(it) }?.timestamp ?: -1)
         )
     }
+
+    private fun isGateOpened(e: NotificationEntity) =
+        (e.entType == "wejście" && "otwarta".contains(e.content)) ||
+        (e.entType == "gate"    && "opened".contains(e.content))
+
+    private fun isGateClosed(e: NotificationEntity) =
+        (e.entType == "wejście" && "zamknięta".contains(e.content)) ||
+        (e.entType == "gate"    && "closed".contains(e.content))
+
+    private fun isMovement(e: NotificationEntity) =
+        e.entType == "ruch" || e.entType == "movement"
 
     private fun entitiesToEventViews(daos: List<NotificationEntity>): List<EventViewDto> = daos.mapIndexed { idx, entity ->
         val nextDt = daos.getOrNull(idx + 1)

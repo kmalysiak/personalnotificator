@@ -38,9 +38,18 @@ class ConfigRepository @Inject constructor(
             ConfigMode.REMOTE -> "config.json"
             ConfigMode.LOCAL -> "config_dev.json"
         }
-        val json = context.assets.open(filename)
-            .bufferedReader(StandardCharsets.UTF_8)
-            .use { it.readText() }
-        return Gson().fromJson(json, AppConfig::class.java)
+        return try {
+            val json = context.assets.open(filename)
+                .bufferedReader(StandardCharsets.UTF_8)
+                .use { it.readText() }
+            Gson().fromJson(json, AppConfig::class.java)
+        } catch (e: java.io.FileNotFoundException) {
+            if (mode != ConfigMode.REMOTE) {
+                setMode(ConfigMode.REMOTE)
+                loadConfig(ConfigMode.REMOTE)
+            } else {
+                throw e
+            }
+        }
     }
 }

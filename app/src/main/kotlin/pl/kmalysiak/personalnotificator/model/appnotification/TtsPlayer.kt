@@ -24,6 +24,10 @@ class TtsPlayer(
     private val prefsDataUtil: PreferencesDataUtil,
     private val appStateRepo: AppStateRepository
 ) {
+    companion object {
+        // Change this to switch TTS language, e.g. Locale.US, Locale("de", "DE")
+        val LOCALE: Locale = Locale("pl", "PL")
+    }
     private val log = LoggerFactory.getLogger(TtsPlayer::class.java)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -37,7 +41,7 @@ class TtsPlayer(
     fun initialize() {
         tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale("pl", "PL")
+                tts?.language = LOCALE
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
                     override fun onDone(utteranceId: String?) {
@@ -51,7 +55,7 @@ class TtsPlayer(
                         mainHandler.post { processQueue() }
                     }
                 })
-                log.info("TTS on, locale PL")
+                log.info("TTS on, locale {}", LOCALE)
                 ttsInitialized = true
                 processQueue()
                 prefsDataUtil.saveTtsReady(true)

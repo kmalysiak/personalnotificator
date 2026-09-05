@@ -40,9 +40,31 @@ val copyGoogleServices = tasks.register("copyGoogleServices") {
     doLast { srcFile.copyTo(destFile, overwrite = true) }
 }
 
+val copyConfig = tasks.register("copyConfig") {
+    val srcFile = file(localProps["CONFIG_FILE"] as? String
+        ?: error("CONFIG_FILE not set in secrets"))
+    val destFile = layout.projectDirectory.file("src/main/assets/config.json").asFile
+    inputs.file(srcFile)
+    outputs.file(destFile)
+    doLast { srcFile.copyTo(destFile, overwrite = true) }
+}
+
+val copyConfigDev = tasks.register("copyConfigDev") {
+    val srcFile = file(localProps["CONFIG_DEV_FILE"] as? String
+        ?: error("CONFIG_DEV_FILE not set in secrets"))
+    val destFile = layout.projectDirectory.file("src/main/assets/config_dev.json").asFile
+    inputs.file(srcFile)
+    outputs.file(destFile)
+    doLast { srcFile.copyTo(destFile, overwrite = true) }
+}
+
 tasks.configureEach {
     if (name.matches(Regex("process.*GoogleServices"))) {
         dependsOn(copyGoogleServices)
+    }
+    if (name.matches(Regex("merge.*Assets"))) {
+        dependsOn(copyConfig)
+        dependsOn(copyConfigDev)
     }
 }
 

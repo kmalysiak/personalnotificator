@@ -18,10 +18,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
+import pl.kmalysiak.personalnotificator.haier.HaierSnapshotMessage
+import pl.kmalysiak.personalnotificator.haier.toDto
 import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
 import pl.kmalysiak.personalnotificator.main.DateTimeUtil
 import pl.kmalysiak.personalnotificator.model.appnotification.NotificationForegroundService
@@ -128,12 +131,23 @@ class WebSocketService : Service() {
     private fun handlePushMessage(msg: String) {
         log.debug("Push: {}", msg)
         when {
+            msg.contains("haier_snapshot")      -> handleHaierData(msg)
             msg.contains("auth_error")          -> handleAuthError()
             msg.contains("auth_ok")             -> handleAuthOk()
             msg.contains("entityFriendlyName")  -> handleNotification(msg)
             msg.contains("timestamp")           -> handleHeartbeat(msg)
             else                                -> log.warn("Unknown WS message: {}", msg)
         }
+    }
+
+    private val haierJson = Json { ignoreUnknownKeys = true }
+
+    private fun handleHaierData(msg: String) {
+        val envelope = runCatching { haierJson.decodeFromString<HaierSnapshotMessage>(msg) }.getOrElse {
+            log.error("Failed to parse haier_snapshot: {}", it.message)
+            return
+        }
+        appStateRepo.setHaierData(envelope.payload.toDto())
     }
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)

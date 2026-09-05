@@ -66,7 +66,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import pl.kmalysiak.personalnotificator.main.DateTimeUtil
-import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import pl.kmalysiak.personalnotificator.BuildConfig
 import pl.kmalysiak.personalnotificator.appstate.ConfigRepository
 import pl.kmalysiak.personalnotificator.ws.WebSocketManager
@@ -90,8 +89,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
     val lastReconnectRequest by viewModel.lastReconnectRequest.collectAsState()
     val ttsReady by viewModel.ttsReady.collectAsState()
     val authResult by viewModel.authResult.collectAsState()
-    val username by viewModel.username
-    val password by viewModel.password
+    val haierData by viewModel.haierData.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadCredentials()
@@ -119,7 +117,7 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
 
 
             var selectedTabIndex by remember { mutableStateOf(0) }
-            val tabs = listOf("Events", "Settings", "Credentials")
+            val tabs = listOf("Events", "Settings", "Haier")
 
             Column {
                 TabRow(selectedTabIndex = selectedTabIndex) {
@@ -133,7 +131,6 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                 }
 
                 val scope = rememberCoroutineScope()
-                var regResult by remember { mutableStateOf<BackendAuthResult?>(null) }
 
                 when (selectedTabIndex) {
                     0 -> TabEvents(lastGateOpened, lastGateClosed, lastMovement, lastReconnectRequest, lastHeartbeat, wsState, ttsReady, tableData)
@@ -144,75 +141,13 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
                     }
 
                     1 -> TabSettings(token, permissionData, viewModel)
-                    2 -> TabCredentials(username, password) {
-                        inputUser, inputPass ->
-                        viewModel.saveCredentials(inputUser, inputPass)
-                        viewModel.authenticate()
-                    }
+                    2 -> TabHaier(haierData)
                 }
             }
         }
     }
 }
 
-
-@Composable
-fun TabCredentials(
-    username: String,
-    password: String,
-    onVerifyClick: (username: String, password: String) -> Unit
-) {
-
-    var inputUser by remember { mutableStateOf(username) }
-    var inputPass by remember { mutableStateOf(password) }
-
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(text = "Backend authentitcation")
-
-        Spacer(modifier = Modifier.width(32.dp))
-
-        OutlinedTextField(
-            value = inputUser,
-            onValueChange = { inputUser = it },
-            label = { Text("Username") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.width(32.dp))
-
-        OutlinedTextField(
-            value = inputPass,
-            onValueChange = { inputPass = it },
-            label = { Text("Password") },
-            singleLine = true,
-            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = Icons.Filled.Lock, contentDescription = null)
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.width(32.dp))
-
-        Button(
-            onClick = { onVerifyClick(inputUser, inputPass) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = inputUser.isNotBlank() && inputPass.isNotBlank(),
-        ) {
-            Text("Verify and set credentials")
-        }
-    }
-
-}
 
 @Composable
 fun TabSettings(
@@ -380,6 +315,46 @@ fun TabSettings(
     }
 
         HorizontalDivider(thickness = 1.dp)
+
+        var inputUser by remember { mutableStateOf(viewModel.username.value) }
+        var inputPass by remember { mutableStateOf(viewModel.password.value) }
+        var passwordVisible by remember { mutableStateOf(false) }
+
+        Text(
+            "Backend authentication",
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = inputUser,
+            onValueChange = { inputUser = it },
+            label = { Text("Username") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = inputPass,
+            onValueChange = { inputPass = it },
+            label = { Text("Password") },
+            singleLine = true,
+            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = Icons.Filled.Lock, contentDescription = null)
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(
+            onClick = {
+                viewModel.saveCredentials(inputUser, inputPass)
+                viewModel.authenticate()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = inputUser.isNotBlank() && inputPass.isNotBlank(),
+        ) {
+            Text("Verify and set credentials")
+        }
     }
 }
 

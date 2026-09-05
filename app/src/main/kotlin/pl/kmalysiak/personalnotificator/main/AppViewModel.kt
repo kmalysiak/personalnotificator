@@ -23,6 +23,7 @@ import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
 import pl.kmalysiak.personalnotificator.appstate.PreferencesDataUtil
 import pl.kmalysiak.personalnotificator.ws.WebSocketManager
 import pl.kmalysiak.personalnotificator.ws.WebSocketService
+import pl.kmalysiak.personalnotificator.haier.HaierHeatPumpDto
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -53,6 +54,8 @@ class AppViewModel @Inject constructor(
     internal val ttsReady: StateFlow<Boolean?> = appStateRepo.ttsReady
     internal val lastReconnectRequest: StateFlow<LocalDateTime> = appStateRepo.lastReconnectRequest
     internal val permissionData: StateFlow<List<Triple<String, LocalDateTime, String>>> = appStateRepo.permissions
+
+    internal val haierData: StateFlow<HaierHeatPumpDto?> = appStateRepo.haierData
 
     private val _ttsVolume = MutableStateFlow(prefsDataUtil.loadTtsVolume())
     internal val ttsVolume: StateFlow<Float> get() = _ttsVolume

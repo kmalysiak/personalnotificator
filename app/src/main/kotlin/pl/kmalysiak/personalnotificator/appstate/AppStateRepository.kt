@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import pl.kmalysiak.personalnotificator.haier.HaierHeatPumpDto
 import pl.kmalysiak.personalnotificator.ws.WebSocketManager
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -33,6 +34,9 @@ class AppStateRepository @Inject constructor() {
     private val _notificationSaved = MutableSharedFlow<Unit>(extraBufferCapacity = 16)
     val notificationSaved: SharedFlow<Unit> = _notificationSaved
 
+    private val _haierData = MutableStateFlow<HaierHeatPumpDto?>(null)
+    val haierData: StateFlow<HaierHeatPumpDto?> = _haierData
+
     fun setFcmToken(token: String) { _fcmToken.value = token }
     fun setWsState(state: WebSocketManager.State) { _wsState.value = state }
     fun setLastHeartbeat(dt: LocalDateTime) { _lastHeartbeat.value = dt }
@@ -40,4 +44,5 @@ class AppStateRepository @Inject constructor() {
     fun setLastReconnectRequest(dt: LocalDateTime) { _lastReconnectRequest.value = dt }
     fun addPermission(type: String, dt: LocalDateTime, status: String) { _permissions.value += Triple(type, dt, status) }
     fun emitNotificationSaved() { _notificationSaved.tryEmit(Unit) }
+    fun setHaierData(dto: HaierHeatPumpDto) { _haierData.value = dto }
 }

@@ -1,6 +1,6 @@
 [versions]
 activityComposeVersion = "1.13.0"
-agp = "9.1.0"
+agp = "9.1.1"
 mockk = "1.13.12"
 coroutinesTest = "1.8.1"
 firebaseAuth = "24.0.1"

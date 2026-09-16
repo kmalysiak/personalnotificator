@@ -50,6 +50,10 @@ class PreferencesDataUtil @Inject constructor(@ApplicationContext context: Conte
 
     fun saveTtsReady(ready: Boolean) = prefs.edit { putBoolean("tts_ready", ready) }
     fun loadTtsReady(): Boolean? = if (prefs.contains("tts_ready")) prefs.getBoolean("tts_ready", false) else null
+
+    // epoch sekund ostatniej wiadomości WS widzianej przez klienta - przetrwa restart procesu, wysyłane backendowi w pongu
+    fun saveLastSeenEpochSeconds(value: Long) = prefs.edit { putLong("last_seen_epoch_seconds", value) }
+    fun loadLastSeenEpochSeconds(): Long = prefs.getLong("last_seen_epoch_seconds", 0L)
 }
 
 data class UiPref(val name: String, val enabled: Boolean)

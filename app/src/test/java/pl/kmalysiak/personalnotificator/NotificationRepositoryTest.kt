@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
@@ -115,6 +116,29 @@ class NotificationRepositoryTest {
         repo.save(buildNotification(entType = "reconnect_request"))
 
         assertEquals("secret-token", intentSlot.captured.getStringExtra("idToken"))
+    }
+
+    @Test
+    fun `save returns false and skips side effects when dao reports duplicate hash`() = runTest {
+        coEvery { dao.insert(any()) } returns -1L
+        var received = false
+        val job = launch { appStateRepo.notificationSaved.collect { received = true } }
+
+        val isNew = repo.save(buildNotification())
+
+        job.cancel()
+        assertEquals(false, isNew)
+        assertTrue(!received)
+        coVerify(exactly = 0) { dao.keepLatest500() }
+    }
+
+    @Test
+    fun `save returns true when dao inserts new row`() = runTest {
+        coEvery { dao.insert(any()) } returns 1L
+
+        val isNew = repo.save(buildNotification())
+
+        assertTrue(isNew)
     }
 
     private fun buildNotification(

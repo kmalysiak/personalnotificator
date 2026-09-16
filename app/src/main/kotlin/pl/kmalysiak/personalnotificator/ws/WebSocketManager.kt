@@ -28,6 +28,7 @@ class WebSocketManager(
     private val backendAuthService: BackendAuthService,
     private val onMessage: (String) -> Unit,
     private val onStateChange: (State) -> Unit,
+    private val getLastSeenEpochSeconds: () -> Long,
 ) {
     enum class State { CONNECTING, CONNECTED, RECONNECTING, RECONNECTING_REAUTH, AUTH_ERROR, STOPPED }
 
@@ -109,7 +110,8 @@ class WebSocketManager(
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 if (text == "heartbeat" || text == "ping") {
-                    webSocket.send("pong")
+                    // kontrakt backendu: {"type":"pong","lastSeen":"<epoch sekundy>"}
+                    webSocket.send("""{"type":"pong","lastSeen":"${getLastSeenEpochSeconds()}"}""")
                     return
                 }
                 onMessage(text)

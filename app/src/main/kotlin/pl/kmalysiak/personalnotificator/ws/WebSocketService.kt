@@ -26,6 +26,7 @@ import kotlinx.serialization.json.long
 import pl.kmalysiak.personalnotificator.haier.HaierSnapshotMessage
 import pl.kmalysiak.personalnotificator.haier.toDto
 import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
+import pl.kmalysiak.personalnotificator.appstate.PreferencesDataUtil
 import pl.kmalysiak.personalnotificator.main.DateTimeUtil
 import pl.kmalysiak.personalnotificator.model.appnotification.NotificationForegroundService
 import pl.kmalysiak.personalnotificator.sysnotification.SysNotificationHandler
@@ -33,6 +34,7 @@ import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.appstate.ConfigRepository
 import pl.kmalysiak.personalnotificator.appstate.SecurePrefsService
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -46,6 +48,7 @@ class WebSocketService : Service() {
     @Inject lateinit var configRepository: ConfigRepository
     @Inject lateinit var backendAuthService: BackendAuthService
     @Inject lateinit var appStateRepo: AppStateRepository
+    @Inject lateinit var prefsDataUtil: PreferencesDataUtil
 
     private lateinit var wsManager: WebSocketManager
     private val NOTIF_ID = 4
@@ -53,9 +56,18 @@ class WebSocketService : Service() {
     private val serviceScope = CoroutineScope(job + Dispatchers.IO)
     private var startJob: kotlinx.coroutines.Job? = null
 
+    // epoch sekund najnowszej wiadomości WS faktycznie odebranej (nie: zapisanej) - wysyłane backendowi w pongu
+    // trwałe (SharedPreferences), żeby przetrwać restart procesu WebSocketService, nie tylko reconnect WS
+    private val lastSeenEpochSeconds = AtomicLong(0)
+
+    private fun markSeen(timestamp: Long) {
+        val updated = lastSeenEpochSeconds.updateAndGet { maxOf(it, timestamp) }
+        if (updated == timestamp) prefsDataUtil.saveLastSeenEpochSeconds(updated)
+    }
 
     override fun onCreate() {
         super.onCreate()
+        lastSeenEpochSeconds.set(prefsDataUtil.loadLastSeenEpochSeconds())
         val fgsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
             ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
         else
@@ -73,6 +85,7 @@ class WebSocketService : Service() {
             backendAuthService = backendAuthService,
             onMessage = { msg -> handlePushMessage(msg) },
             onStateChange = { state -> updateNotification(state) },
+            getLastSeenEpochSeconds = { lastSeenEpochSeconds.get() },
         )
     }
 
@@ -178,6 +191,7 @@ class WebSocketService : Service() {
     private fun handleHeartbeat(msg: String) {
         val obj = Json.parseToJsonElement(msg).jsonObject
         val timestamp = obj["timestamp"]?.jsonPrimitive?.long ?: Instant.now().epochSecond
+        markSeen(timestamp)
         startNotificationService("websocket", "websocket", "websocket", DateTimeUtil.dateFormatterHrMinSec.format(DateTimeUtil.toWarsawDt(timestamp)), Instant.now().epochSecond)
     }
 
@@ -189,6 +203,7 @@ class WebSocketService : Service() {
         val type               = obj?.get("type")?.jsonPrimitive?.content ?: ""
         val content            = obj?.get("msg")?.jsonPrimitive?.content ?: ""
         val timestamp          = obj?.get("timestamp")?.jsonPrimitive?.content?.toLongOrNull() ?: Instant.now().epochSecond
+        markSeen(timestamp)
 
         if (type == "ws_ping") {
             appStateRepo.setLastHeartbeat(DateTimeUtil.toWarsawDt(timestamp))

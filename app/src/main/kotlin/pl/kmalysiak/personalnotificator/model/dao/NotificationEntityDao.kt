@@ -2,13 +2,15 @@ package pl.kmalysiak.personalnotificator.model.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import pl.kmalysiak.personalnotificator.model.dao.NotificationEntity
 
 @Dao
 interface NotificationEntityDao {
-    @Insert
-    suspend fun insert(note: NotificationEntity)
+    // IGNORE + unique index na hash -> zwraca -1 gdy to duplikat treści
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(note: NotificationEntity): Long
 
     @Query("SELECT * FROM notification ORDER BY timestamp DESC")
     suspend fun getAll(): List<NotificationEntity>

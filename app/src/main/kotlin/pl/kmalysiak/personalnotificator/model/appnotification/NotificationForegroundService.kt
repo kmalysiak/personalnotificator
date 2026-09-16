@@ -65,8 +65,10 @@ class NotificationForegroundService : Service() {
                 timestamp = safeIntent.getLongExtra("notificationTimestamp", Instant.now().epochSecond),
                 timestampReceived = Instant.now().epochSecond
             )
-            notificationRepository.save(notification)
-            if (prefsDataUtil.getByName(notification.entType)) {
+            val isNew = notificationRepository.save(notification)
+            if (!isNew) {
+                log.info("Duplikat powiadomienia, pomijam TTS: {}", notification.entFriendlyName)
+            } else if (prefsDataUtil.getByName(notification.entType)) {
                 ttsPlayer.enqueue("${notification.entFriendlyName}, ${notification.content}")
             } else {
                 log.info("TTS dla powiadomienia:{} jest wyłączone w preferencjach", notification.entFriendlyName)

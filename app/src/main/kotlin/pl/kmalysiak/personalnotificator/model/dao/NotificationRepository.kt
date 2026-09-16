@@ -28,8 +28,13 @@ class NotificationRepository @Inject constructor(
         dao.deleteALl()
     }
 
-    suspend fun save(notification: NotificationEntity) {
-        dao.insert(notification)
+    // zwraca false jeśli to retransmisja tej samej treści (hash już w bazie) - insert zignorowany
+    suspend fun save(notification: NotificationEntity): Boolean {
+        val rowId = dao.insert(notification)
+        if (rowId == -1L) {
+            log.info("Zignorowano duplikat powiadomienia (hash={})", notification.hash)
+            return false
+        }
         dao.keepLatest500()
         appStateRepo.emitNotificationSaved()
         if (notification.entType == "reconnect_request") {
@@ -41,5 +46,6 @@ class NotificationRepository @Inject constructor(
             )
             log.info("reconnect_request: restarting WebSocketService")
         }
+        return true
     }
 }

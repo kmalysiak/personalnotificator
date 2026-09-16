@@ -10,6 +10,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -109,10 +112,10 @@ class WebSocketManager(
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                if (text == "heartbeat" || text == "ping") {
+                val type = runCatching { Json.parseToJsonElement(text).jsonObject["type"]?.jsonPrimitive?.content }.getOrNull()
+                if (type == "ws_ping" || text == "heartbeat" || text == "ping") {
                     // kontrakt backendu: {"type":"pong","lastSeen":"<epoch sekundy>"}
                     webSocket.send("""{"type":"pong","lastSeen":"${getLastSeenEpochSeconds()}"}""")
-                    return
                 }
                 onMessage(text)
             }

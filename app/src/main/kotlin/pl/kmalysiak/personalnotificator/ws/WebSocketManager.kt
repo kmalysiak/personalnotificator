@@ -50,6 +50,8 @@ class WebSocketManager(
     private var reconnectJob: Job? = null
     private val isRunning = AtomicBoolean(false)
     private var failureCount = 0
+    private var reAuthFailureCount = 0
+    private val maxReAuthFailures = 3
 
     // WakeLock — trzyma CPU aktywny przez połączenie
     private val wakeLock: PowerManager.WakeLock by lazy {
@@ -106,6 +108,7 @@ class WebSocketManager(
 
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 failureCount = 0
+                reAuthFailureCount = 0
                 reconnectJob?.cancel()
                 onStateChange(State.CONNECTED)
                 log.info("Connected")
@@ -138,6 +141,19 @@ class WebSocketManager(
     }
     private fun scheduleReconnect(reAuthenticate: Boolean = false) {
         if (!isRunning.get()) return
+
+        // limit prób re-auth, żeby nie bić w Firebase w nieskończoność (ryzyko "too many requests" na urządzeniu)
+        if (reAuthenticate && reAuthFailureCount >= maxReAuthFailures) {
+            log.error("Re-authentication failed {} times in a row, giving up", reAuthFailureCount)
+            isRunning.set(false)
+            reconnectJob?.cancel()
+            webSocket?.close(1000, "Auth giving up")
+            releaseWakeLock()
+            scope.cancel()
+            onStateChange(State.AUTH_ERROR)
+            return
+        }
+
         if(reAuthenticate)
             onStateChange(State.RECONNECTING_REAUTH)
         else
@@ -154,7 +170,14 @@ class WebSocketManager(
             try {
                 if (reAuthenticate) {
                     log.info("Re-authenticating before reconnect")
-                    backendAuthService.authenticateAndSendCredHome()
+                    val result = backendAuthService.authenticateAndSendCredHome()
+                    if (!result.isRegister) {
+                        reAuthFailureCount++
+                        log.warn("Re-authentication failed ({}/{}): {}", reAuthFailureCount, maxReAuthFailures, result.errorDesc)
+                        scheduleReconnect(reAuthenticate = true)
+                        return@launch
+                    }
+                    reAuthFailureCount = 0
                 }
                 connect(securePrefs.loadIdToken(), securePrefs.loadFcmToken())
             } catch (e: Exception) {

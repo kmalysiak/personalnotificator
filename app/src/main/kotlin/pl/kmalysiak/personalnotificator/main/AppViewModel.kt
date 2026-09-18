@@ -15,6 +15,8 @@ import pl.kmalysiak.personalnotificator.App
 import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
 import pl.kmalysiak.personalnotificator.main.DateTimeUtil
 import pl.kmalysiak.personalnotificator.model.dao.NotificationRepository
+import pl.kmalysiak.personalnotificator.model.dao.NotificationTypePreferenceEntity
+import pl.kmalysiak.personalnotificator.model.dao.NotificationTypePreferenceRepository
 import pl.kmalysiak.personalnotificator.auth.BackendAuthResult
 import pl.kmalysiak.personalnotificator.auth.BackendAuthService
 import pl.kmalysiak.personalnotificator.appstate.ConfigRepository
@@ -35,6 +37,7 @@ class AppViewModel @Inject constructor(
     private val backendAuthService: BackendAuthService,
     private val configRepository: ConfigRepository,
     private val notificationRepository: NotificationRepository,
+    private val typePreferenceRepository: NotificationTypePreferenceRepository,
     private val appStateRepo: AppStateRepository
 ) : AndroidViewModel(application) {
 
@@ -63,6 +66,37 @@ class AppViewModel @Inject constructor(
     fun setTtsVolume(volume: Float) {
         prefsDataUtil.saveTtsVolume(volume)
         _ttsVolume.value = volume
+    }
+
+    private val _typePreferences = MutableStateFlow<List<NotificationTypePreferenceEntity>>(emptyList())
+    internal val typePreferences: StateFlow<List<NotificationTypePreferenceEntity>> get() = _typePreferences
+
+    private suspend fun reloadTypePreferences() {
+        _typePreferences.value = typePreferenceRepository.getAll()
+    }
+
+    private fun updateLocalTypePreference(entType: String, transform: (NotificationTypePreferenceEntity) -> NotificationTypePreferenceEntity) {
+        _typePreferences.value = _typePreferences.value.map { if (it.entType == entType) transform(it) else it }
+    }
+
+    fun setTypeEnabled(entType: String, enabled: Boolean) {
+        updateLocalTypePreference(entType) { it.copy(enabled = enabled) }
+        viewModelScope.launch(Dispatchers.IO) { typePreferenceRepository.setEnabled(entType, enabled) }
+    }
+
+    fun setTypeVolume(entType: String, volume: Float) {
+        updateLocalTypePreference(entType) { it.copy(volume = volume) }
+        viewModelScope.launch(Dispatchers.IO) { typePreferenceRepository.setVolume(entType, volume) }
+    }
+
+    fun setTypeAlarmEnabled(entType: String, alarmEnabled: Boolean) {
+        updateLocalTypePreference(entType) { it.copy(alarmEnabled = alarmEnabled) }
+        viewModelScope.launch(Dispatchers.IO) { typePreferenceRepository.setAlarmEnabled(entType, alarmEnabled) }
+    }
+
+    fun deleteTypePreference(entType: String) {
+        _typePreferences.value = _typePreferences.value.filterNot { it.entType == entType }
+        viewModelScope.launch(Dispatchers.IO) { typePreferenceRepository.delete(entType) }
     }
 
     val configMode: StateFlow<ConfigRepository.ConfigMode> = configRepository.configMode
@@ -112,11 +146,15 @@ class AppViewModel @Inject constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             reloadFromDb()
+            reloadTypePreferences()
         }
 
         viewModelScope.launch {
             appStateRepo.notificationSaved.collect {
-                withContext(Dispatchers.IO) { reloadFromDb() }
+                withContext(Dispatchers.IO) {
+                    reloadFromDb()
+                    reloadTypePreferences()
+                }
             }
         }
     }
@@ -124,7 +162,6 @@ class AppViewModel @Inject constructor(
     private suspend fun reloadFromDb() {
         val entities = notificationRepository.getAll()
         _tableData.value = entitiesToEventViews(entities)
-        prefsDataUtil.updatePreferences(entities.map { it.entType })
         val (opened, closed, movement) = filterLastEvents(entities)
         _lastGateOpened.value = opened
         _lastGateClosed.value = closed
@@ -161,12 +198,6 @@ class AppViewModel @Inject constructor(
             isLastAtDay,
             DateTimeUtil.toWarsawDt(entity.timestampReceived)
         )
-    }
-
-    fun getPrefsForDisplay() = prefsDataUtil.getForDisplay()
-
-    fun setPreference(name: String, enabled: Boolean) {
-        prefsDataUtil.setPreference(name, enabled)
     }
 
     fun clearDb() {

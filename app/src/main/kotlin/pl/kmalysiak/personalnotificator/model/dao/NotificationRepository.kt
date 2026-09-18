@@ -16,6 +16,7 @@ import javax.inject.Singleton
 @Singleton
 class NotificationRepository @Inject constructor(
     private val dao: NotificationEntityDao,
+    private val typePreferenceRepository: NotificationTypePreferenceRepository,
     private val appStateRepo: AppStateRepository,
     private val securePrefs: SecurePrefsService,
     @ApplicationContext private val context: Context
@@ -36,6 +37,7 @@ class NotificationRepository @Inject constructor(
             return false
         }
         dao.keepLatest500()
+        typePreferenceRepository.ensureDefault(notification.entType)
         appStateRepo.emitNotificationSaved()
         if (notification.entType == "reconnect_request") {
             appStateRepo.setLastReconnectRequest(DateTimeUtil.Companion.toWarsawDt(notification.timestamp))

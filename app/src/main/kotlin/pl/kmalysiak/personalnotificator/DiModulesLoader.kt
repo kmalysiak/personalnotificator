@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import pl.kmalysiak.personalnotificator.model.dao.NotificationEntityDao
+import pl.kmalysiak.personalnotificator.model.dao.NotificationTypePreferenceDao
 import pl.kmalysiak.personalnotificator.model.dao.NotificatorDatabase
 import javax.inject.Singleton
 
@@ -25,4 +26,8 @@ object DiModulesLoader {
     @Provides
     fun provideDao(db: NotificatorDatabase): NotificationEntityDao =
         db.notificationEntityDao()
+
+    @Provides
+    fun provideTypePreferenceDao(db: NotificatorDatabase): NotificationTypePreferenceDao =
+        db.notificationTypePreferenceDao()
 }

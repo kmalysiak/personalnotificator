@@ -1,5 +1,6 @@
 package pl.kmalysiak.personalnotificator.main
 
+import android.widget.TextView
 import android.widget.Toast
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
@@ -26,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
@@ -100,7 +102,9 @@ fun MainView(viewModel: AppViewModel = viewModel()) {
         if (result.isRegister) {
             Toast.makeText(context, "Zalogowano", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "Błąd: ${result.errorDesc}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Błąd: ${result.errorDesc}", Toast.LENGTH_LONG).apply {
+                view?.findViewById<TextView>(android.R.id.message)?.textSize = 18f
+            }.show()
         }
     }
 
@@ -207,47 +211,12 @@ fun TabSettings(
 
     HorizontalDivider()
 
-    val items = remember {
-        mutableStateOf(viewModel.getPrefsForDisplay())
-    }
-
-    Column {
-
-        items.value.forEach { item ->
-
-            Row(
-                modifier = Modifier
-                    .padding(vertical = 8.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Switch(
-                    checked = item.enabled,
-                    onCheckedChange = { checked ->
-                        viewModel.setPreference(item.name, checked)
-                        items.value = viewModel.getPrefsForDisplay()
-                    }
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Text(
-                    text = item.name,
-                    style = MaterialTheme.typography.bodyLarge
-
-                )
-            }
-        }
-    }
-
-    HorizontalDivider()
-
     val ttsVolume by viewModel.ttsVolume.collectAsState()
     Row(
         modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("TTS volume", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(100.dp))
+        Text("Master volume (limit)", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(140.dp))
         Slider(
             value = ttsVolume,
             onValueChange = { viewModel.setTtsVolume(it) },
@@ -259,6 +228,65 @@ fun TabSettings(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.width(40.dp),
         )
+    }
+
+    HorizontalDivider()
+
+    val typePreferences by viewModel.typePreferences.collectAsState()
+
+    Column {
+        typePreferences.forEach { pref ->
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Switch(
+                        checked = pref.enabled,
+                        onCheckedChange = { viewModel.setTypeEnabled(pref.entType, it) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = pref.entType,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "Alarm",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                    Switch(
+                        checked = pref.alarmEnabled,
+                        onCheckedChange = { viewModel.setTypeAlarmEnabled(pref.entType, it) }
+                    )
+                    IconButton(onClick = { viewModel.deleteTypePreference(pref.entType) }) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Usuń")
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Głośność", style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(70.dp))
+                    Slider(
+                        value = pref.volume,
+                        onValueChange = { viewModel.setTypeVolume(pref.entType, it) },
+                        valueRange = 0f..1f,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "${(pref.volume * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.width(40.dp),
+                    )
+                }
+
+                HorizontalDivider()
+            }
+        }
     }
 
     HorizontalDivider()

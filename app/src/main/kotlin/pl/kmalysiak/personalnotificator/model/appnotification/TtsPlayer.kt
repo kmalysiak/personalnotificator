@@ -31,12 +31,15 @@ class TtsPlayer(
     private val log = LoggerFactory.getLogger(TtsPlayer::class.java)
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private data class QueueItem(val text: String, val volume: Float)
+
     private var tts: TextToSpeech? = null
     private var mediaPlayer: MediaPlayer? = null
-    private val queue: Queue<String> = LinkedList()
+    private val queue: Queue<QueueItem> = LinkedList()
     private var isPlaying = false
     private var ttsInitialized = false
     private var wavFile: File? = null
+    private var currentVolume = 1.0f
 
     fun initialize() {
         tts = TextToSpeech(context) { status ->
@@ -69,9 +72,10 @@ class TtsPlayer(
         }
     }
 
-    fun enqueue(text: String) {
+    // volume: głośność już ograniczona przez master (górny limit) - patrz NotificationForegroundService
+    fun enqueue(text: String, volume: Float) {
         mainHandler.post {
-            queue.offer(text)
+            queue.offer(QueueItem(text, volume))
             processQueue()
         }
     }
@@ -90,12 +94,13 @@ class TtsPlayer(
         }
         if (isPlaying || queue.isEmpty()) return
 
-        val text = queue.poll() ?: return
+        val item = queue.poll() ?: return
         isPlaying = true
+        currentVolume = item.volume
 
         val file = File(context.getExternalFilesDir(null), "notification.wav")
         wavFile = file
-        tts?.synthesizeToFile(text, Bundle(), file, "ttsWav")
+        tts?.synthesizeToFile(item.text, Bundle(), file, "ttsWav")
     }
 
     private fun playWav() {
@@ -110,7 +115,7 @@ class TtsPlayer(
         val audioManager = context.getSystemService(AudioManager::class.java)
         val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-        val targetVolume = (maxVolume * prefsDataUtil.loadTtsVolume()).toInt().coerceIn(0, maxVolume)
+        val targetVolume = (maxVolume * currentVolume).toInt().coerceIn(0, maxVolume)
 
         val focusRequest = AudioFocusRequest
             .Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)

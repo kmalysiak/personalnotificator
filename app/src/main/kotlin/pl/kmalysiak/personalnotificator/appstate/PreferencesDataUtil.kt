@@ -10,41 +10,8 @@ import javax.inject.Singleton
 class PreferencesDataUtil @Inject constructor(@ApplicationContext context: Context) {
 
     private val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-    private val PREFIX = "tts_enabled_"
 
-    private fun key(name: String) = PREFIX + name
-    private fun strip(key: String) = key.removePrefix(PREFIX)
-
-    fun updatePreferences(names: List<String>, defaultValue: Boolean = true) {
-        prefs.edit {
-            for (storedKey in prefs.all.keys) {
-                if (storedKey.startsWith(PREFIX)) {
-                    val uiName = strip(storedKey)
-                    if (uiName !in names) remove(storedKey)
-                }
-            }
-            for (name in names) {
-                val k = key(name)
-                if (!prefs.contains(k)) putBoolean(k, defaultValue)
-            }
-        }
-    }
-
-    fun getByName(name: String): Boolean = prefs.getBoolean(key(name), false)
-
-    fun setPreference(name: String, enabled: Boolean) {
-        prefs.edit { putBoolean(key(name), enabled) }
-    }
-
-    fun getAll(): Map<String, Boolean> = prefs.all
-        .filterKeys { it.startsWith(PREFIX) }
-        .mapKeys { strip(it.key) }
-        .mapValues { it.value as Boolean }
-
-    fun getForDisplay(): List<UiPref> = getAll()
-        .map { UiPref(it.key, it.value) }
-        .sortedBy { it.name }
-
+    // master: górny limit nakładany na głośność per-typ (NotificationTypePreferenceEntity.volume)
     fun saveTtsVolume(volume: Float) = prefs.edit { putFloat("tts_volume", volume) }
     fun loadTtsVolume(): Float = prefs.getFloat("tts_volume", 1.0f)
 
@@ -55,5 +22,3 @@ class PreferencesDataUtil @Inject constructor(@ApplicationContext context: Conte
     fun saveLastSeenEpochSeconds(value: Long) = prefs.edit { putLong("last_seen_epoch_seconds", value) }
     fun loadLastSeenEpochSeconds(): Long = prefs.getLong("last_seen_epoch_seconds", 0L)
 }
-
-data class UiPref(val name: String, val enabled: Boolean)

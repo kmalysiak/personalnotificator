@@ -28,54 +28,6 @@ class PreferencesDataUtilTest {
         context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit().clear().commit()
     }
 
-    // updatePreferences — logika kluczy
-
-    @Test
-    fun updatePreferences_addsNewKeysWithDefaultTrue() {
-        util.updatePreferences(listOf("ruch", "wejście"))
-        assertTrue(util.getByName("ruch"))
-        assertTrue(util.getByName("wejście"))
-    }
-
-    @Test
-    fun updatePreferences_removesKeysMissingFromNewList() {
-        util.updatePreferences(listOf("ruch", "wejście", "alarm"))
-        util.updatePreferences(listOf("ruch"))
-        val keys = util.getForDisplay().map { it.name }
-        assertEquals(listOf("ruch"), keys)
-    }
-
-    @Test
-    fun updatePreferences_doesNotOverwriteExistingValue() {
-        util.updatePreferences(listOf("ruch"))
-        util.setPreference("ruch", false)
-        util.updatePreferences(listOf("ruch", "wejście"))
-        assertFalse("istniejący klucz powinien zachować wartość false", util.getByName("ruch"))
-        assertTrue("nowy klucz powinien dostać domyślne true", util.getByName("wejście"))
-    }
-
-    @Test
-    fun updatePreferences_emptyList_removesAllKeys() {
-        util.updatePreferences(listOf("ruch", "wejście"))
-        util.updatePreferences(emptyList())
-        assertTrue(util.getForDisplay().isEmpty())
-    }
-
-    @Test
-    fun updatePreferences_defaultFalse_addsKeysWithFalse() {
-        util.updatePreferences(listOf("ruch"), defaultValue = false)
-        assertFalse(util.getByName("ruch"))
-    }
-
-    @Test
-    fun updatePreferences_calledTwiceWithSameList_isIdempotent() {
-        util.updatePreferences(listOf("ruch", "wejście"))
-        util.setPreference("ruch", false)
-        util.updatePreferences(listOf("ruch", "wejście"))
-        assertFalse("wartość nie powinna się zmienić przy ponownym wywołaniu", util.getByName("ruch"))
-        assertTrue(util.getByName("wejście"))
-    }
-
     // TTS prefs
 
     @Test

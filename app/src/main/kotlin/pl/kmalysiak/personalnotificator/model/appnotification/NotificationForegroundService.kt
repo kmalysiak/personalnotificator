@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory
 import pl.kmalysiak.personalnotificator.appstate.AppStateRepository
 import pl.kmalysiak.personalnotificator.model.dao.NotificationRepository
 import pl.kmalysiak.personalnotificator.model.dao.NotificationEntity
+import pl.kmalysiak.personalnotificator.model.dao.NotificationTypePreferenceRepository
 import pl.kmalysiak.personalnotificator.appstate.PreferencesDataUtil
 import pl.kmalysiak.personalnotificator.sysnotification.SysNotificationHandler
 import java.time.Instant
@@ -32,6 +33,8 @@ class NotificationForegroundService : Service() {
     lateinit var prefsDataUtil: PreferencesDataUtil
     @Inject
     lateinit var notificationRepository: NotificationRepository
+    @Inject
+    lateinit var typePreferenceRepository: NotificationTypePreferenceRepository
     @Inject
     lateinit var appStateRepo: AppStateRepository
 
@@ -66,10 +69,13 @@ class NotificationForegroundService : Service() {
                 timestampReceived = Instant.now().epochSecond
             )
             val isNew = notificationRepository.save(notification)
+            val typePref = typePreferenceRepository.getByType(notification.entType)
             if (!isNew) {
                 log.info("Duplikat powiadomienia, pomijam TTS: {}", notification.entFriendlyName)
-            } else if (prefsDataUtil.getByName(notification.entType)) {
-                ttsPlayer.enqueue("${notification.entFriendlyName}, ${notification.content}")
+            } else if (typePref?.enabled != false) {
+                // master (prefsDataUtil.loadTtsVolume) nakłada górny limit na głośność danego typu
+                val volume = minOf(typePref?.volume ?: 1.0f, prefsDataUtil.loadTtsVolume())
+                ttsPlayer.enqueue("${notification.entFriendlyName}, ${notification.content}", volume)
             } else {
                 log.info("TTS dla powiadomienia:{} jest wyłączone w preferencjach", notification.entFriendlyName)
             }

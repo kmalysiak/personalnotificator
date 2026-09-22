@@ -623,7 +623,9 @@ fun LongPressButton(
                 .alpha(0.6f), // Przezroczystość żeby tekst był widoczny
             color = Color.Yellow,
             trackColor = Color.Transparent,
-            strokeCap = StrokeCap.Butt
+            strokeCap = StrokeCap.Butt,
+            gapSize = 0.dp,
+            drawStopIndicator = {} // domyślny "stop indicator" Material3 - niechciany kwadracik na końcu ścieżki
         )
     }
 }

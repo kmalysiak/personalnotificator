@@ -106,8 +106,9 @@ fun TabHaier(data: HaierHeatPumpDto?) {
         HaierSectionLabel("Debug")
 
         HaierRow {
-            HaierValueCell("Unknown queries", data?.unknownQueryCount.fmt(0), "", errorMap["unknownQueryCount"], Modifier.weight(1f))
-            Spacer(Modifier.weight(2f))
+            HaierValueCell("Unknown queries", data?.unknownQueryCount.fmt(0), "",    errorMap["unknownQueryCount"], Modifier.weight(1f))
+            HaierValueCell("ESP Wi-Fi",       data?.wifiSignal.fmt(0),        "dBm", errorMap["wifiSignal"],        Modifier.weight(1f))
+            HaierValueCell("ESP uptime",      data?.uptime.fmtDuration(),     "",    errorMap["uptime"],            Modifier.weight(1f))
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -226,6 +227,20 @@ private fun HaierBoolCell(
 
 private fun BigDecimal?.fmt(decimals: Int = 1): String =
     this?.setScale(decimals, RoundingMode.HALF_UP)?.toPlainString() ?: "--"
+
+/** sekundy -> "2d 3h 15m" / "3h 15m" / "15m 7s" */
+private fun BigDecimal?.fmtDuration(): String {
+    val total = this?.toLong() ?: return "--"
+    val d = total / 86_400
+    val h = (total % 86_400) / 3_600
+    val m = (total % 3_600) / 60
+    val s = total % 60
+    return when {
+        d > 0 -> "${d}d ${h}h ${m}m"
+        h > 0 -> "${h}h ${m}m"
+        else  -> "${m}m ${s}s"
+    }
+}
 
 private fun DictValue?.fmt(): String = when {
     this == null  -> "--"

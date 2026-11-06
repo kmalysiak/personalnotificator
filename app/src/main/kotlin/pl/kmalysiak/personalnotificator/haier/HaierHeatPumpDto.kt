@@ -31,6 +31,8 @@ data class HaierHeatPumpDto(
     val copEstimated: BigDecimal? = null,
     val suctionGasTemperatureTs: BigDecimal? = null,
     val unknownQueryCount: BigDecimal? = null,
+    val wifiSignal: BigDecimal? = null,
+    val uptime: BigDecimal? = null,
     val comment: String? = null,
     val errors: List<FieldError> = emptyList(),
 )

@@ -38,6 +38,8 @@ data class HaierHeatPumpWireDto(
     val copEstimated: Double? = null,
     val suctionGasTemperatureTs: Double? = null,
     val unknownQueryCount: Double? = null,
+    val wifiSignal: Double? = null,
+    val uptime: Double? = null,
     val comment: String? = null,
     val errors: List<FieldError> = emptyList(),
 )
@@ -48,6 +50,7 @@ fun HaierHeatPumpWireDto.toDto(): HaierHeatPumpDto = HaierHeatPumpDto(
     heatPumpMode                 = heatPumpMode,
     energyMode                   = energyMode,
     currentErrorCode             = currentErrorCode,
+    r141LsbErrorCodeAlt          = r141LsbErrorCodeAlt,
     defrostActive                = defrostActive,
     antifreezeProtectionActive   = antifreezeProtectionActive,
     threeWayValveToCh            = threeWayValveToCh,
@@ -69,6 +72,8 @@ fun HaierHeatPumpWireDto.toDto(): HaierHeatPumpDto = HaierHeatPumpDto(
     copEstimated                  = copEstimated?.toBigDecimal(),
     suctionGasTemperatureTs       = suctionGasTemperatureTs?.toBigDecimal(),
     unknownQueryCount             = unknownQueryCount?.toBigDecimal(),
+    wifiSignal                    = wifiSignal?.toBigDecimal(),
+    uptime                        = uptime?.toBigDecimal(),
     comment = comment,
     errors  = errors,
 )
